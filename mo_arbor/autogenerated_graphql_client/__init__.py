@@ -1,3 +1,10 @@
+from ._testing__acknowledge_event import TestingAcknowledgeEvent
+from ._testing__declare_event_listener import TestingDeclareEventListener
+from ._testing__declare_event_listener import (
+    TestingDeclareEventListenerEventListenerDeclare,
+)
+from ._testing__fetch_event import TestingFetchEvent
+from ._testing__fetch_event import TestingFetchEventEventFetch
 from .async_base_client import AsyncBaseClient
 from .base_model import BaseModel
 from .client import GraphQLClient
@@ -165,6 +172,7 @@ from .list_files import ListFilesFilesObjects
 from .read_file import ReadFile
 from .read_file import ReadFileFiles
 from .read_file import ReadFileFilesObjects
+from .send_event import SendEvent
 
 __all__ = [
     "AccessLogFilter",
@@ -325,6 +333,12 @@ __all__ = [
     "RoleBindingTerminateInput",
     "RoleBindingUpdateInput",
     "RoleRegistrationFilter",
+    "SendEvent",
+    "TestingAcknowledgeEvent",
+    "TestingDeclareEventListener",
+    "TestingDeclareEventListenerEventListenerDeclare",
+    "TestingFetchEvent",
+    "TestingFetchEventEventFetch",
     "UuidsBoundClassFilter",
     "UuidsBoundEmployeeFilter",
     "UuidsBoundEngagementFilter",
