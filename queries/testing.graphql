@@ -17,3 +17,29 @@ query _Testing_FetchEvent($listener: UUID!) {
 mutation _Testing_AcknowledgeEvent($token: EventToken!) {
   event_acknowledge(input: {token: $token})
 }
+
+mutation _Testing_CreateFacet($input: FacetCreateInput!) {
+  facet_create(input: $input) {
+    uuid
+  }
+}
+
+mutation _Testing_CreateClass($input: ClassCreateInput!) {
+  class_create(input: $input) {
+    uuid
+  }
+}
+
+query _Testing_GetOrgUnitHistory($uuid: UUID!) {
+  org_units(filter: {uuids: [$uuid], from_date: null, to_date: null}) {
+    objects {
+      validities {
+        name
+        validity {
+          from
+          to
+        }
+      }
+    }
+  }
+}
