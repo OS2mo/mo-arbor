@@ -2,6 +2,12 @@ from .acknowledge_event import AcknowledgeEvent
 from .async_base_client import AsyncBaseClient
 from .base_model import BaseModel
 from .client import GraphQLClient
+from .create_class import CreateClass
+from .create_class import CreateClassClassCreate
+from .create_facet import CreateFacet
+from .create_facet import CreateFacetFacetCreate
+from .create_org_unit import CreateOrgUnit
+from .create_org_unit import CreateOrgUnitOrgUnitCreate
 from .declare_event_listener import DeclareEventListener
 from .declare_event_listener import DeclareEventListenerEventListenerDeclare
 from .enums import AccessLogModel
@@ -19,10 +25,23 @@ from .exceptions import GraphQLClientHttpError
 from .exceptions import GraphQlClientInvalidResponseError
 from .fetch_event import FetchEvent
 from .fetch_event import FetchEventEventFetch
+from .get_class import GetClass
+from .get_class import GetClassClasses
+from .get_class import GetClassClassesObjects
 from .get_org_unit import GetOrgUnit
 from .get_org_unit import GetOrgUnitOrgUnits
 from .get_org_unit import GetOrgUnitOrgUnitsObjects
 from .get_org_unit import GetOrgUnitOrgUnitsObjectsCurrent
+from .get_org_unit import GetOrgUnitOrgUnitsObjectsCurrentOrgUnitLevel
+from .get_org_unit import GetOrgUnitOrgUnitsObjectsCurrentParent
+from .get_org_unit import GetOrgUnitOrgUnitsObjectsCurrentUnitType
+from .get_org_unit import GetOrgUnitOrgUnitsObjectsValidities
+from .get_org_unit import GetOrgUnitOrgUnitsObjectsValiditiesValidity
+from .get_org_unit_history import GetOrgUnitHistory
+from .get_org_unit_history import GetOrgUnitHistoryOrgUnits
+from .get_org_unit_history import GetOrgUnitHistoryOrgUnitsObjects
+from .get_org_unit_history import GetOrgUnitHistoryOrgUnitsObjectsValidities
+from .get_org_unit_history import GetOrgUnitHistoryOrgUnitsObjectsValiditiesValidity
 from .input_types import AccessLogFilter
 from .input_types import ActorFilter
 from .input_types import AddressCreateInput
@@ -174,6 +193,10 @@ from .read_file import ReadFile
 from .read_file import ReadFileFiles
 from .read_file import ReadFileFilesObjects
 from .send_event import SendEvent
+from .terminate_org_unit import TerminateOrgUnit
+from .terminate_org_unit import TerminateOrgUnitOrgUnitTerminate
+from .update_org_unit import UpdateOrgUnit
+from .update_org_unit import UpdateOrgUnitOrgUnitUpdate
 
 __all__ = [
     "AccessLogFilter",
@@ -199,6 +222,12 @@ __all__ = [
     "ClassTerminateInput",
     "ClassUpdateInput",
     "Collection",
+    "CreateClass",
+    "CreateClassClassCreate",
+    "CreateFacet",
+    "CreateFacetFacetCreate",
+    "CreateOrgUnit",
+    "CreateOrgUnitOrgUnitCreate",
     "DeclareEventListener",
     "DeclareEventListenerEventListenerDeclare",
     "DescendantParentBoundOrganisationUnitFilter",
@@ -238,10 +267,23 @@ __all__ = [
     "FileFilter",
     "FileStore",
     "FullEventFilter",
+    "GetClass",
+    "GetClassClasses",
+    "GetClassClassesObjects",
     "GetOrgUnit",
+    "GetOrgUnitHistory",
+    "GetOrgUnitHistoryOrgUnits",
+    "GetOrgUnitHistoryOrgUnitsObjects",
+    "GetOrgUnitHistoryOrgUnitsObjectsValidities",
+    "GetOrgUnitHistoryOrgUnitsObjectsValiditiesValidity",
     "GetOrgUnitOrgUnits",
     "GetOrgUnitOrgUnitsObjects",
     "GetOrgUnitOrgUnitsObjectsCurrent",
+    "GetOrgUnitOrgUnitsObjectsCurrentOrgUnitLevel",
+    "GetOrgUnitOrgUnitsObjectsCurrentParent",
+    "GetOrgUnitOrgUnitsObjectsCurrentUnitType",
+    "GetOrgUnitOrgUnitsObjectsValidities",
+    "GetOrgUnitOrgUnitsObjectsValiditiesValidity",
     "GraphQLClient",
     "GraphQLClientError",
     "GraphQLClientGraphQLError",
@@ -343,6 +385,10 @@ __all__ = [
     "RoleBindingUpdateInput",
     "RoleRegistrationFilter",
     "SendEvent",
+    "TerminateOrgUnit",
+    "TerminateOrgUnitOrgUnitTerminate",
+    "UpdateOrgUnit",
+    "UpdateOrgUnitOrgUnitUpdate",
     "UuidsBoundClassFilter",
     "UuidsBoundEmployeeFilter",
     "UuidsBoundEngagementFilter",
