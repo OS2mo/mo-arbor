@@ -1,13 +1,28 @@
 from ._testing__acknowledge_event import TestingAcknowledgeEvent
+from ._testing__create_class import TestingCreateClass
+from ._testing__create_class import TestingCreateClassClassCreate
+from ._testing__create_facet import TestingCreateFacet
+from ._testing__create_facet import TestingCreateFacetFacetCreate
 from ._testing__declare_event_listener import TestingDeclareEventListener
 from ._testing__declare_event_listener import (
     TestingDeclareEventListenerEventListenerDeclare,
 )
 from ._testing__fetch_event import TestingFetchEvent
 from ._testing__fetch_event import TestingFetchEventEventFetch
+from ._testing__get_org_unit_history import TestingGetOrgUnitHistory
+from ._testing__get_org_unit_history import TestingGetOrgUnitHistoryOrgUnits
+from ._testing__get_org_unit_history import TestingGetOrgUnitHistoryOrgUnitsObjects
+from ._testing__get_org_unit_history import (
+    TestingGetOrgUnitHistoryOrgUnitsObjectsValidities,
+)
+from ._testing__get_org_unit_history import (
+    TestingGetOrgUnitHistoryOrgUnitsObjectsValiditiesValidity,
+)
 from .async_base_client import AsyncBaseClient
 from .base_model import BaseModel
 from .client import GraphQLClient
+from .create_org_unit import CreateOrgUnit
+from .create_org_unit import CreateOrgUnitOrgUnitCreate
 from .enums import AccessLogModel
 from .enums import Collection
 from .enums import FileStore
@@ -21,10 +36,18 @@ from .exceptions import GraphQLClientGraphQLError
 from .exceptions import GraphQLClientGraphQLMultiError
 from .exceptions import GraphQLClientHttpError
 from .exceptions import GraphQlClientInvalidResponseError
+from .get_class import GetClass
+from .get_class import GetClassClasses
+from .get_class import GetClassClassesObjects
 from .get_org_unit import GetOrgUnit
 from .get_org_unit import GetOrgUnitOrgUnits
 from .get_org_unit import GetOrgUnitOrgUnitsObjects
 from .get_org_unit import GetOrgUnitOrgUnitsObjectsCurrent
+from .get_org_unit import GetOrgUnitOrgUnitsObjectsCurrentParentResponse
+from .get_org_unit import GetOrgUnitOrgUnitsObjectsCurrentUnitLevelResponse
+from .get_org_unit import GetOrgUnitOrgUnitsObjectsCurrentUnitTypeResponse
+from .get_org_unit import GetOrgUnitOrgUnitsObjectsValidities
+from .get_org_unit import GetOrgUnitOrgUnitsObjectsValiditiesValidity
 from .input_types import AccessLogFilter
 from .input_types import ActorFilter
 from .input_types import AddressCreateInput
@@ -173,6 +196,10 @@ from .read_file import ReadFile
 from .read_file import ReadFileFiles
 from .read_file import ReadFileFilesObjects
 from .send_event import SendEvent
+from .terminate_org_unit import TerminateOrgUnit
+from .terminate_org_unit import TerminateOrgUnitOrgUnitTerminate
+from .update_org_unit import UpdateOrgUnit
+from .update_org_unit import UpdateOrgUnitOrgUnitUpdate
 
 __all__ = [
     "AccessLogFilter",
@@ -197,6 +224,8 @@ __all__ = [
     "ClassTerminateInput",
     "ClassUpdateInput",
     "Collection",
+    "CreateOrgUnit",
+    "CreateOrgUnitOrgUnitCreate",
     "DescendantParentBoundOrganisationUnitFilter",
     "EmployeeBoundAddressFilter",
     "EmployeeBoundAssociationFilter",
@@ -232,10 +261,18 @@ __all__ = [
     "FileFilter",
     "FileStore",
     "FullEventFilter",
+    "GetClass",
+    "GetClassClasses",
+    "GetClassClassesObjects",
     "GetOrgUnit",
     "GetOrgUnitOrgUnits",
     "GetOrgUnitOrgUnitsObjects",
     "GetOrgUnitOrgUnitsObjectsCurrent",
+    "GetOrgUnitOrgUnitsObjectsCurrentParentResponse",
+    "GetOrgUnitOrgUnitsObjectsCurrentUnitLevelResponse",
+    "GetOrgUnitOrgUnitsObjectsCurrentUnitTypeResponse",
+    "GetOrgUnitOrgUnitsObjectsValidities",
+    "GetOrgUnitOrgUnitsObjectsValiditiesValidity",
     "GraphQLClient",
     "GraphQLClientError",
     "GraphQLClientGraphQLError",
@@ -334,11 +371,24 @@ __all__ = [
     "RoleBindingUpdateInput",
     "RoleRegistrationFilter",
     "SendEvent",
+    "TerminateOrgUnit",
+    "TerminateOrgUnitOrgUnitTerminate",
     "TestingAcknowledgeEvent",
+    "TestingCreateClass",
+    "TestingCreateClassClassCreate",
+    "TestingCreateFacet",
+    "TestingCreateFacetFacetCreate",
     "TestingDeclareEventListener",
     "TestingDeclareEventListenerEventListenerDeclare",
     "TestingFetchEvent",
     "TestingFetchEventEventFetch",
+    "TestingGetOrgUnitHistory",
+    "TestingGetOrgUnitHistoryOrgUnits",
+    "TestingGetOrgUnitHistoryOrgUnitsObjects",
+    "TestingGetOrgUnitHistoryOrgUnitsObjectsValidities",
+    "TestingGetOrgUnitHistoryOrgUnitsObjectsValiditiesValidity",
+    "UpdateOrgUnit",
+    "UpdateOrgUnitOrgUnitUpdate",
     "UuidsBoundClassFilter",
     "UuidsBoundEmployeeFilter",
     "UuidsBoundEngagementFilter",
