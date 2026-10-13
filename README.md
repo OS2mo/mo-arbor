@@ -19,6 +19,43 @@ options (MO URL, authentication, logging, etc.) are nested under `FASTRAMQPI`
 and set using `__` as delimiter, e.g. `FASTRAMQPI__MO_URL`. See
 [docker-compose.yml](docker-compose.yml) for a working example.
 
+### Code systems
+A code system, such as SOR, is a tree of codes, and each code becomes an org
+unit in MO. Code systems are configured in `CODE_SYSTEMS` as a JSON list, and
+`name` is one the integration knows: `sor` or `okosted`. Økosted has several
+trees, which belong under one Økosted unit that is not in its dumps, so its
+config has a `top_unit` with a `user_key`, `name`, `org_unit_type` and
+`org_unit_level`.
+
+The supplier uploads dumps to MO's `EXPORTS` file store, with the time of the
+dump in the file name (`file_pattern`). A dump is a CSV file as described in
+the supplier's spec "Kodesystemfiler til OS2mo"
+([#69230](https://redmine.magenta.dk/issues/69230)):
+- The rows without a `kode_parent` are roots, which become the top units in
+  MO, or the children of the code system's `top_unit`.
+- Every row must have a `type` and a `niveau`.
+- A unit is valid from `gyldig_fra` to `gyldig_til`, cut to its parent's
+  validity. A code that is gone from the dump is terminated.
+- `aktiv`, `dw_is_deleted` and the timestamps are not used, and a file with
+  other columns is rejected.
+- SOR codes must be valid SOR IDs, which catches codes damaged by Excel.
+
+### Ingest
+A cron job calls `POST /ingest`. For each code system, it compares the newest
+dump with the last ingested one, and sends an `org_unit` event for every code
+that was added, changed or removed. Dumps in between are skipped, and the
+first ingest sends every unit.
+
+Ingest skips a code system and logs an error when:
+- the newest dump is invalid,
+- it would terminate more than `max_terminations` units (override with
+  `?force=true`),
+- the last ingested dump is gone or invalid, as the removed codes cannot be
+  found without it.
+
+`?dry_run=true` shows what would be sent, and `?code_system=<name>` ingests
+only that code system.
+
 
 ## Sundhedsvæsenets Organisationsregister (SOR)
 SOR registers organisation and address data, as well as location numbers, for
