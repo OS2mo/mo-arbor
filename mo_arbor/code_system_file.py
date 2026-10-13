@@ -78,6 +78,14 @@ class Unit(BaseModel, frozen=True, copy_on_model_validation="none"):
         """Distance from its root, which has depth 1."""
         return 1 if self.parent is None else self.parent.depth + 1
 
+    # start is clamped to the parent's, as MO rejects a unit that starts
+    # before its parent.
+    @property
+    def start(self) -> date:
+        if self.parent is None:
+            return self.validity_from
+        return max(self.validity_from, self.parent.start)
+
 
 class Rows(BaseModel):
     """The rows of a file, as trees under one or more roots.

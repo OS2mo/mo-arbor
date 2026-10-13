@@ -93,6 +93,27 @@ def test_aktiv_and_dw_is_deleted_are_not_used() -> None:
     }
 
 
+def test_start_is_clamped_to_parent_start() -> None:
+    """The grandchild is clamped to the child's clamped start."""
+    text = file(
+        row(ROOT, validity_from="2015-07-30"),
+        row(CHILD, parent=ROOT, validity_from="2025-01-09"),
+        row(GRANDCHILD, parent=CHILD, validity_from="2015-07-30"),
+    )
+    units = Rows.parse(text)
+    assert units[ROOT].start == date(2015, 7, 30)
+    assert units[CHILD].start == date(2025, 1, 9)
+    assert units[GRANDCHILD].start == date(2025, 1, 9)
+
+
+def test_start_after_parent_is_kept() -> None:
+    text = file(
+        row(ROOT, validity_from="2015-07-30"),
+        row(CHILD, parent=ROOT, validity_from="2026-05-01"),
+    )
+    assert Rows.parse(text)[CHILD].start == date(2026, 5, 1)
+
+
 def test_several_roots() -> None:
     units = Rows.parse(file(row("R1"), row("R2"), row("C", parent="R2")))
     assert units["R1"].parent is None
