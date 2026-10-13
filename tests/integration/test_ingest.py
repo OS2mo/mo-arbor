@@ -102,6 +102,7 @@ def ingested(
 
 
 def errors(cap_logs: list[MutableMapping[str, Any]]) -> list[tuple[str, str | None]]:
+    # The event handler also runs in the background and logs its own errors
     return [
         (log["event"], log.get("file_name"))
         for log in cap_logs
