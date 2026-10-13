@@ -8,6 +8,7 @@ import pytest
 from mo_arbor.code_system_file import InvalidFile
 from mo_arbor.code_system_file import Rows
 from mo_arbor.code_system_file import Unit
+from mo_arbor.sor import SorRows
 from tests.helpers import COLUMNS
 from tests.helpers import file
 from tests.helpers import row
@@ -208,4 +209,37 @@ def test_values_are_stripped() -> None:
 def test_invalid_file_is_rejected(text: str, error: str) -> None:
     with pytest.raises(InvalidFile) as exc_info:
         Rows.parse(text)
+    assert error in str(exc_info.value)
+
+
+# Made-up codes in the shape of real ones, with valid check digits
+SOR_ROOT = "1001000016005"
+SOR_CHILD = "100001000016006"
+
+
+def test_sor_codes() -> None:
+    text = file(row(SOR_ROOT), row(SOR_CHILD, parent=SOR_ROOT))
+    units = SorRows.parse(text)
+    assert units[SOR_CHILD].parent_user_key == SOR_ROOT
+
+
+@pytest.mark.parametrize(
+    "text,error",
+    [
+        pytest.param(
+            file(row(SOR_ROOT), row("1,001E+12", parent=SOR_ROOT)),
+            "__root__ -> 1 -> kode\n  string does not match regex",
+            id="code",
+        ),
+        pytest.param(
+            # SOR_ROOT with its check digit changed from 5 to 6
+            file(row(SOR_ROOT), row(SOR_CHILD, parent="1001000016006")),
+            "__root__ -> 1 -> kode_parent\n  invalid SOR ID check digit",
+            id="parent",
+        ),
+    ],
+)
+def test_invalid_sor_code_is_rejected(text: str, error: str) -> None:
+    with pytest.raises(InvalidFile) as exc_info:
+        SorRows.parse(text)
     assert error in str(exc_info.value)

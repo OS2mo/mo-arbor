@@ -15,6 +15,7 @@ uvicorn = "^0.34"
 fastramqpi = "^17"
 fastapi = "^0.115.0"
 more-itertools = "^10"
+python-stdnum = "^2"
 
 [tool.poetry.group.pre-commit.dependencies]
 mypy = "^2"
