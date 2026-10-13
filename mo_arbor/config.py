@@ -3,6 +3,9 @@
 from collections import Counter
 from collections.abc import Callable
 from typing import Literal
+from uuid import NAMESPACE_URL
+from uuid import UUID
+from uuid import uuid5
 
 from fastramqpi.config import Settings as FastRAMQPISettings
 from pydantic import BaseModel
@@ -27,6 +30,11 @@ class CodeSystem(BaseModel, frozen=True):
     # rsyd_sor_%Y%m%d_%H%M%S.csv.
     file_pattern: str
 
+    # The UUID of a unit is derived from its user_key in this namespace, so
+    # changing it makes MO's existing units unreachable. SOR's is "sor.dk",
+    # like the one-off importer that created the units.
+    uuid_namespace: str
+
     # Refuse to ingest a dump that removes more units than this, unless forced.
     # Protects against a truncated dump terminating half the tree.
     max_terminations: int = 10
@@ -45,6 +53,10 @@ class CodeSystem(BaseModel, frozen=True):
                 return is_sor_id
             case "okosted":
                 return None
+
+    def uuid(self, user_key: str) -> UUID:
+        namespace = uuid5(NAMESPACE_URL, self.uuid_namespace)
+        return uuid5(namespace, user_key)
 
 
 class _Settings(BaseSettings):
