@@ -10,6 +10,7 @@ rejected as a whole.
 import csv
 import io
 from collections import defaultdict
+from collections.abc import Callable
 from collections.abc import Iterable
 from collections.abc import Mapping
 from collections.abc import Sequence
@@ -182,7 +183,9 @@ class Rows(BaseModel):
         return units
 
 
-def parse(text: str) -> dict[str, Unit]:
+def parse(
+    text: str, is_valid_code: Callable[[str], bool] | None = None
+) -> dict[str, Unit]:
     """Parse and validate a code system file.
 
     The rows without a parent are roots, which become the code system's top
@@ -190,6 +193,8 @@ def parse(text: str) -> dict[str, Unit]:
 
     Args:
         text: The file.
+        is_valid_code: Checks the codes, for code systems whose codes have a
+            known form, such as `is_sor_id`.
 
     Returns:
         The units in the file, keyed by user_key.
@@ -199,6 +204,12 @@ def parse(text: str) -> dict[str, Unit]:
     """
     reader = csv.DictReader(io.StringIO(text, newline=""), delimiter=";")
     try:
-        return Rows.parse_obj(list(reader)).to_units()
+        units = Rows.parse_obj(list(reader)).to_units()
     except ValidationError as e:
         raise InvalidFile(str(e)) from None
+    if is_valid_code is not None:
+        # Every parent is a unit, so this checks the parents' codes too
+        invalid = sorted(c for c in units if not is_valid_code(c))
+        if invalid:
+            raise InvalidFile(f"invalid codes: {invalid}")
+    return units
