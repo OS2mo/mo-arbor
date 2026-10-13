@@ -44,7 +44,8 @@ the supplier's spec "Kodesystemfiler til OS2mo"
 A cron job calls `POST /ingest`. For each code system, it compares the newest
 dump with the last ingested one, and sends an `org_unit` event for every code
 that was added, changed or removed. Dumps in between are skipped, and the
-first ingest sends every unit.
+first ingest sends every unit. Event priorities make MO hand out parents'
+events before their children's, and terminations last, children first.
 
 Ingest skips a code system and logs an error when:
 - the newest dump is invalid,
@@ -55,6 +56,25 @@ Ingest skips a code system and logs an error when:
 
 `?dry_run=true` shows what would be sent, and `?code_system=<name>` ingests
 only that code system.
+
+### Event handler
+Each `org_unit` event makes the org unit with that code match the code
+system's newest dump: it is created, updated, reopened or terminated as
+needed. The newest dump is read rather than the one the event came from, so an
+old or repeated event never writes outdated data.
+
+Changes take effect from the dump's date, or from the unit's start if that is
+later. A code that is gone from the dump is terminated with the day before
+the dump as its last day.
+
+A unit's UUID is derived from its code in the code system's `uuid_namespace`,
+so the same code in two code systems is two units. Never change a code
+system's `uuid_namespace`, as MO's existing units would become unreachable.
+SOR's is `sor.dk`, like the one-off importer that created the units.
+
+The type and level are the classes in the `org_unit_type` and
+`org_unit_level` facets whose user_key is the row's `type` and `niveau`. If a
+class does not exist, the event fails and is retried until someone creates it.
 
 
 ## Sundhedsvæsenets Organisationsregister (SOR)
@@ -78,7 +98,8 @@ Unit tests:
 ```
 poetry run pytest -m "not integration_test"
 ```
-Integration tests run against the local OS2mo, from inside the container:
+Integration tests run against the local OS2mo, from inside the container. They
+reset OS2mo's database before each test, so everything in it is lost:
 ```
 docker compose run --rm mo-arbor pytest -m integration_test
 ```
