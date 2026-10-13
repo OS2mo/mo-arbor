@@ -38,17 +38,43 @@ class TooManyTerminations(Exception):
     pass
 
 
+# Removed units get this minus their depth as priority, while new and changed
+# units get their depth, so terminations come after every creation and update.
+# The exact value does not matter, as long as it is above every depth. Events in
+# the wrong order still work, they are just retried a few minutes later.
+TERMINATION_PRIORITY = 1000
+
+
+def priorities(
+    changes: Diff, units: dict[str, Unit], previous: dict[str, Unit]
+) -> dict[str, int]:
+    """The priority of each user_key's event.
+
+    MO hands out the events with the lowest priority first. Parents come before
+    their children, as MO rejects a unit whose parent does not exist. Removed
+    units come last, children first, as MO rejects terminating a unit with
+    active children.
+    """
+    by_user_key: dict[str, int] = {}
+    for user_key in changes.added | changes.changed:
+        by_user_key[user_key] = units[user_key].depth
+    for user_key in changes.removed:
+        by_user_key[user_key] = TERMINATION_PRIORITY - previous[user_key].depth
+    return by_user_key
+
+
 async def send_events(
-    mo: GraphQLClient, code_system: CodeSystem, user_keys: set[str]
+    mo: GraphQLClient, code_system: CodeSystem, priorities: dict[str, int]
 ) -> None:
     async with asyncio.TaskGroup() as tg:
-        for user_key in user_keys:
+        for user_key, priority in priorities.items():
             tg.create_task(
                 mo.send_event(
                     input=EventSendInput(
                         namespace=code_system.name,
                         routing_key="org_unit",
                         subject=user_key,
+                        priority=priority,
                     )
                 )
             )
@@ -100,9 +126,7 @@ async def ingest_code_system(
     # Events are sent before the dump is recorded, so if we crash in between,
     # the next ingest sends them again rather than losing them. An event sent
     # twice is harmless, as the handler reads the newest dump either way.
-    await send_events(
-        mo, code_system, changes.added | changes.changed | changes.removed
-    )
+    await send_events(mo, code_system, priorities(changes, dump.units, previous_units))
     async with sessionmaker() as session, session.begin():
         await session.execute(
             insert(LastIngested)
