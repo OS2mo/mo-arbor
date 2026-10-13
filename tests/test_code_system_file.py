@@ -16,6 +16,30 @@ CHILD = "C"
 GRANDCHILD = "G"
 
 
+def tree(
+    root_from: str = "2015-07-30",
+    child_from: str = "2015-07-30",
+    grandchild_from: str = "2015-07-30",
+) -> str:
+    return file(
+        row(ROOT, name="Root", org_unit_type="region", validity_from=root_from),
+        row(
+            CHILD,
+            parent=ROOT,
+            name="Område",
+            org_unit_level="N2",
+            validity_from=child_from,
+        ),
+        row(
+            GRANDCHILD,
+            parent=CHILD,
+            name="Afdeling",
+            org_unit_level="N3",
+            validity_from=grandchild_from,
+        ),
+    )
+
+
 def test_parse() -> None:
     text = file(
         row(ROOT, name="Root", org_unit_type="region"),
@@ -74,6 +98,19 @@ def test_parse_without_quotes_and_crlf() -> None:
     text = file(row(ROOT), row(CHILD, parent=ROOT))
     text = text.replace('"', "").replace("\r\n", "\n")
     assert parse(text).keys() == {ROOT, CHILD}
+
+
+def test_start_is_clamped_to_parent_start() -> None:
+    """The grandchild is clamped to the child's clamped start."""
+    units = parse(tree(child_from="2025-01-09", grandchild_from="2015-07-30"))
+    assert units[ROOT].start == date(2015, 7, 30)
+    assert units[CHILD].start == date(2025, 1, 9)
+    assert units[GRANDCHILD].start == date(2025, 1, 9)
+
+
+def test_start_after_parent_is_kept() -> None:
+    units = parse(tree(grandchild_from="2026-05-01"))
+    assert units[GRANDCHILD].start == date(2026, 5, 1)
 
 
 def test_several_roots() -> None:
