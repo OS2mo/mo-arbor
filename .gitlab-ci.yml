@@ -84,5 +84,6 @@ Integration-test:
     - .integration-test:mo
   variables:
     FASTRAMQPI__JSON_LOGS: "False"
+    CODE_SYSTEMS: '[{"name": "sor", "file_pattern": "region_sor_%Y%m%d_%H%M%S.csv"}, {"name": "okosted", "file_pattern": "region_okosted_%Y%m%d_%H%M%S.csv"}]'
   rules:
     - <<: *if-merge-request
