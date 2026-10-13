@@ -30,7 +30,7 @@ it was invalid. A dump is a CSV file as described in the supplier's spec
 "Kodesystemfiler til OS2mo"
 ([#69230](https://redmine.magenta.dk/issues/69230)):
 - The rows without a `kode_parent` are roots, which become the top units in
-  MO.
+  MO, or go under the code system's `root` (see below).
 - Every row must have a `type` and a `niveau`.
 - A unit is valid from `gyldig_fra` to `gyldig_til`, cut to its parent's
   validity. A unit that is gone from the dump is terminated.
@@ -42,7 +42,8 @@ it was invalid. A dump is a CSV file as described in the supplier's spec
 A cron job calls `POST /ingest`. For each code system, it compares the newest
 dump with the last ingested one, and sends an `org_unit` event for every unit
 that was added, changed or removed. Dumps in between are skipped, and the
-first ingest sends every unit.
+first ingest sends every unit. Event priorities make MO hand out parents'
+events before their children's, and terminations last, children first.
 
 Ingest skips a code system and logs an error when:
 - the newest dump is invalid,
@@ -56,6 +57,30 @@ job fails.
 
 `?dry_run=true` shows what would be sent without sending it, and
 `?code_system=<name>` ingests only that code system.
+
+### Event handler
+Each `org_unit` event makes the org unit with that code match the code
+system's newest dump: it is created, updated, reopened or terminated as
+needed. The newest dump is read rather than the one the event came from, so an
+old or repeated event never writes outdated data.
+
+Changes take effect from the dump's date, or from the unit's start if that is
+later. A unit that is gone from the dump is terminated with the day before
+the dump as its last day, or from its start if it has not started, so it is
+never active.
+
+A unit's UUID is derived from its code and the code system's `name`, so the
+same code in two code systems is two units. Never rename a code system, as
+MO's existing units would become unreachable.
+
+A dump's roots are at the top of MO, unless the code system has a `root`: the
+UUID of a unit made by hand in MO, which they are put under. Økosted's dumps
+have several roots, which belong under one Økosted unit. Changing `root` does
+not move existing units, as only changes in the dumps send events.
+
+The type and level are the classes in the `org_unit_type` and
+`org_unit_level` facets whose user_key is the row's `type` and `niveau`. If a
+class does not exist, the event fails and is retried until someone creates it.
 
 
 ## Sundhedsvæsenets Organisationsregister (SOR)
@@ -79,7 +104,8 @@ Unit tests:
 ```
 poetry run pytest -m "not integration_test"
 ```
-Integration tests run against the local OS2mo, from inside the container:
+Integration tests run against the local OS2mo, from inside the container. They
+reset OS2mo's database before each test, so everything in it is lost:
 ```
 docker compose run --rm mo-arbor pytest -m integration_test
 ```
