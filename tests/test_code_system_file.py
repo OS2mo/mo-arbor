@@ -76,6 +76,27 @@ def test_parse_without_quotes_and_crlf() -> None:
     assert parse(text).keys() == {ROOT, CHILD}
 
 
+def test_start_is_clamped_to_parent_start() -> None:
+    """The grandchild is clamped to the child's clamped start."""
+    text = file(
+        row(ROOT, validity_from="2015-07-30"),
+        row(CHILD, parent=ROOT, validity_from="2025-01-09"),
+        row(GRANDCHILD, parent=CHILD, validity_from="2015-07-30"),
+    )
+    units = parse(text)
+    assert units[ROOT].start == date(2015, 7, 30)
+    assert units[CHILD].start == date(2025, 1, 9)
+    assert units[GRANDCHILD].start == date(2025, 1, 9)
+
+
+def test_start_after_parent_is_kept() -> None:
+    text = file(
+        row(ROOT, validity_from="2015-07-30"),
+        row(CHILD, parent=ROOT, validity_from="2026-05-01"),
+    )
+    assert parse(text)[CHILD].start == date(2026, 5, 1)
+
+
 def test_several_roots() -> None:
     units = parse(file(row(ROOT), row(CHILD), row(GRANDCHILD, parent=CHILD)))
     assert {k: u.depth for k, u in units.items()} == {ROOT: 1, CHILD: 1, GRANDCHILD: 2}
