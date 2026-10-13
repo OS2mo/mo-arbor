@@ -372,6 +372,18 @@ files = [
 ]
 
 [[package]]
+name = "async-lru"
+version = "2.4.0"
+description = "Simple LRU cache for asyncio"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "async_lru-2.4.0-py3-none-any.whl", hash = "sha256:1b46a96419ef91fe11431d58db98d792c9b4250001427191a40faf1031934212"},
+    {file = "async_lru-2.4.0.tar.gz", hash = "sha256:b0b0077d9b7596615b3c12d0aad4f6aeccaaa0ac75ceae472608ede89e764c08"},
+]
+
+[[package]]
 name = "attrs"
 version = "26.1.0"
 description = "Classes Without Boilerplate"
@@ -3865,4 +3877,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "72d842221ef4a1811cb5b75fc67d393b870517179af54f5ddcc69fea4830a0cc"
+content-hash = "7787d2d5c1aeb4883038d554dde4e0f79528b59f7233558c99bc04da109f6c01"
