@@ -39,6 +39,7 @@ def test_parse() -> None:
         org_unit_type="region",
         org_unit_level="N1",
         validity_from=date(2015, 7, 30),
+        validity_to=None,
     )
     child = Unit(
         user_key=CHILD,
@@ -47,6 +48,7 @@ def test_parse() -> None:
         org_unit_type="klinisk enhed",
         org_unit_level="N2",
         validity_from=date(2020, 1, 1),
+        validity_to=None,
     )
     grandchild = Unit(
         user_key=GRANDCHILD,
@@ -55,6 +57,7 @@ def test_parse() -> None:
         org_unit_type="klinisk enhed",
         org_unit_level="N3",
         validity_from=date(2015, 7, 30),
+        validity_to=None,
     )
     assert units == {ROOT: root, CHILD: child, GRANDCHILD: grandchild}
     # Each unit refers to its parent's unit, not a copy
@@ -90,6 +93,7 @@ def test_aktiv_and_dw_is_deleted_are_not_used() -> None:
             org_unit_type="region",
             org_unit_level="N1",
             validity_from=date(2015, 7, 30),
+            validity_to=None,
         )
     }
 
@@ -113,6 +117,42 @@ def test_start_after_parent_is_kept() -> None:
         row(CHILD, parent=ROOT, validity_from="2026-05-01"),
     )
     assert Rows.parse(text)[CHILD].start == date(2026, 5, 1)
+
+
+def test_validity_to() -> None:
+    units = Rows.parse(
+        file(row(ROOT), row(CHILD, parent=ROOT, validity_to="2030-12-31"))
+    )
+    assert units[ROOT].end is None
+    assert units[CHILD].end == date(2030, 12, 31)
+
+
+def test_validity_to_on_validity_from() -> None:
+    """A unit valid for a single day."""
+    units = Rows.parse(
+        file(row(ROOT, validity_from="2030-12-31", validity_to="2030-12-31"))
+    )
+    assert units[ROOT].start == units[ROOT].end == date(2030, 12, 31)
+
+
+def test_end_is_clamped_to_parent_end() -> None:
+    """Open-ended or not, and down the tree."""
+    text = file(
+        row(ROOT, validity_to="2030-12-31"),
+        row(CHILD, parent=ROOT, validity_to="2035-12-31"),
+        row(GRANDCHILD, parent=CHILD),
+    )
+    units = Rows.parse(text)
+    assert units[CHILD].end == date(2030, 12, 31)
+    assert units[GRANDCHILD].end == date(2030, 12, 31)
+
+
+def test_end_before_parent_end_is_kept() -> None:
+    text = file(
+        row(ROOT, validity_to="2030-12-31"),
+        row(CHILD, parent=ROOT, validity_to="2029-12-31"),
+    )
+    assert Rows.parse(text)[CHILD].end == date(2029, 12, 31)
 
 
 def test_several_roots() -> None:
@@ -165,6 +205,37 @@ def test_values_are_stripped() -> None:
             file(row(ROOT), row(CHILD, parent=ROOT, validity_from="30-07-2015")),
             "__root__ -> 1 -> gyldig_fra\n  invalid date format",
             id="old-date-format",
+        ),
+        pytest.param(
+            file(row(ROOT), row(CHILD, parent=ROOT, validity_to="31/12/2030")),
+            "__root__ -> 1 -> gyldig_til\n  invalid date format",
+            id="invalid-validity-to",
+        ),
+        pytest.param(
+            file(row(ROOT), row(CHILD, parent=ROOT, validity_to="2015-07-29")),
+            "__root__ -> 1 -> gyldig_til\n  before gyldig_fra",
+            id="validity-to-before-validity-from",
+        ),
+        pytest.param(
+            file(
+                row(ROOT, validity_to="2020-12-31"),
+                row(CHILD, parent=ROOT, validity_from="2021-01-01"),
+            ),
+            f"{CHILD}: not valid while its parent is",
+            id="starts-after-parent-ends",
+        ),
+        pytest.param(
+            file(
+                row(ROOT, validity_from="2020-01-01"),
+                row(
+                    CHILD,
+                    parent=ROOT,
+                    validity_from="2015-01-01",
+                    validity_to="2019-12-31",
+                ),
+            ),
+            f"{CHILD}: not valid while its parent is",
+            id="ends-before-parent-starts",
         ),
         pytest.param(
             # The reader fills the missing columns of a short row with None
