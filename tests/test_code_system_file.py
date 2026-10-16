@@ -5,6 +5,7 @@ from datetime import date
 import pytest
 
 from mo_arbor.code_system_file import InvalidFile
+from mo_arbor.code_system_file import TopUnit
 from mo_arbor.code_system_file import Unit
 from mo_arbor.code_system_file import parse
 from mo_arbor.sor import is_sor_id
@@ -291,3 +292,46 @@ def test_invalid_sor_code_is_rejected() -> None:
     with pytest.raises(InvalidFile) as exc_info:
         parse(text, is_sor_id)
     assert str(exc_info.value) == "invalid codes: ['1,001E+12']"
+
+
+TOP = TopUnit(user_key="T", name="Top", org_unit_type="region", org_unit_level="N0")
+
+
+def test_top_unit() -> None:
+    text = file(
+        row(ROOT, validity_from="2020-01-01"),
+        row(CHILD),
+        row(GRANDCHILD, parent=CHILD),
+    )
+    units = parse(text, top_unit=TOP)
+
+    assert units["T"] == Unit(
+        user_key="T",
+        parent=None,
+        name="Top",
+        org_unit_type="region",
+        org_unit_level="N0",
+        # The earliest root's start
+        validity_from=date(2015, 7, 30),
+        validity_to=None,
+    )
+    assert units[ROOT].parent is units[CHILD].parent is units["T"]
+    assert units[ROOT].start == date(2020, 1, 1)
+    assert {k: u.depth for k, u in units.items()} == {
+        "T": 1,
+        ROOT: 2,
+        CHILD: 2,
+        GRANDCHILD: 3,
+    }
+
+
+def test_top_unit_code_in_the_file_is_rejected() -> None:
+    with pytest.raises(InvalidFile) as exc_info:
+        parse(file(row(ROOT), row("T", parent=ROOT)), top_unit=TOP)
+    assert str(exc_info.value) == "the top unit's code is in the file: T"
+
+
+def test_top_unit_code_is_not_checked() -> None:
+    """It is not one of the code system's codes."""
+    units = parse(file(row(SOR_ROOT)), is_sor_id, TOP)
+    assert units.keys() == {"T", SOR_ROOT}
