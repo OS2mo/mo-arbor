@@ -66,8 +66,8 @@ def test_parse() -> None:
     assert [units[k].depth for k in (ROOT, CHILD, GRANDCHILD)] == [1, 2, 3]
 
 
-def test_other_columns_are_ignored() -> None:
-    """Such as aktiv and dw_is_deleted."""
+def test_unused_columns() -> None:
+    """aktiv, dw_is_deleted and the timestamps are read, but not used."""
     text = file(
         row(ROOT, aktiv="false", dw_is_deleted="true"),
         row(CHILD, parent=ROOT),
@@ -161,6 +161,16 @@ def test_values_are_stripped() -> None:
             file(row(ROOT), columns=[c for c in COLUMNS if c != "navn"]),
             "__root__ -> 0 -> navn\n  field required",
             id="missing-column",
+        ),
+        pytest.param(
+            file(row(ROOT, niveau_tekst="Region"), columns=[*COLUMNS, "niveau_tekst"]),
+            "__root__ -> 0 -> niveau_tekst\n  extra fields not permitted",
+            id="unknown-column",
+        ),
+        pytest.param(
+            file(row(ROOT), columns=[*COLUMNS, "navn"]),
+            "duplicate columns: ['navn']",
+            id="duplicate-column",
         ),
         pytest.param(
             # Would otherwise make every row a root
