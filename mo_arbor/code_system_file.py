@@ -111,6 +111,19 @@ class Unit(BaseModel, frozen=True, copy_on_model_validation="none"):
         return values
 
 
+class TopUnit(BaseModel, frozen=True):
+    """A unit above the roots of a file, for code systems with several roots.
+
+    It is valid from the earliest root's start, and open-ended, so no root is
+    clamped to it.
+    """
+
+    user_key: str
+    name: str
+    org_unit_type: str
+    org_unit_level: str
+
+
 def _user_keys(rows: Iterable[Row]) -> str:
     return ", ".join(sorted({row.user_key for row in rows}))
 
@@ -202,41 +215,59 @@ class Rows(BaseModel):
             raise ValueError(f"not under a root: {_user_keys(cycles)}")
         return values
 
-    def to_units(self) -> dict[str, Unit]:
+    def to_units(self, top_unit: TopUnit | None = None) -> dict[str, Unit]:
         children = _children(self.__root__)
+        roots = children[None]
         units: dict[str, Unit] = {}
-        for root in children[None]:
-            units |= _units(root, None, children)
+        top = None
+        if top_unit is not None:
+            top = Unit(
+                **top_unit.dict(),
+                parent=None,
+                validity_from=min(root.validity_from for root in roots),
+                validity_to=None,
+            )
+            units[top.user_key] = top
+        for root in roots:
+            units |= _units(root, top, children)
         return units
 
 
 def parse(
-    text: str, is_valid_code: Callable[[str], bool] | None = None
+    text: str,
+    is_valid_code: Callable[[str], bool] | None = None,
+    top_unit: TopUnit | None = None,
 ) -> dict[str, Unit]:
     """Parse and validate a code system file.
 
     The rows without a parent are roots, which become the code system's top
-    units in MO.
+    units in MO, or the children of `top_unit`.
 
     Args:
         text: The file.
         is_valid_code: Checks the codes, for code systems whose codes have a
             known form, such as `is_sor_id`.
+        top_unit: A unit to put above the roots, for code systems with
+            several roots.
 
     Returns:
-        The units in the file, keyed by user_key.
+        The units, keyed by user_key.
 
     Raises:
         InvalidFile: If the file fails validation.
     """
     reader = csv.DictReader(io.StringIO(text, newline=""), delimiter=";")
     try:
-        units = Rows.parse_obj(list(reader)).to_units()
+        rows = Rows.parse_obj(list(reader))
+        units = rows.to_units(top_unit)
     except ValidationError as e:
         raise InvalidFile(str(e)) from None
+    codes = [row.user_key for row in rows.__root__]
+    if top_unit is not None and top_unit.user_key in codes:
+        raise InvalidFile(f"the top unit's code is in the file: {top_unit.user_key}")
     if is_valid_code is not None:
-        # Every parent is a unit, so this checks the parents' codes too
-        invalid = sorted(c for c in units if not is_valid_code(c))
+        # Every parent is a row, so this checks the parents' codes too
+        invalid = sorted(c for c in codes if not is_valid_code(c))
         if invalid:
             raise InvalidFile(f"invalid codes: {invalid}")
     return units
