@@ -186,6 +186,16 @@ def test_values_are_stripped() -> None:
             id="missing-column",
         ),
         pytest.param(
+            file(row(ROOT, niveau_tekst="Region"), columns=[*COLUMNS, "niveau_tekst"]),
+            "__root__ -> 0 -> niveau_tekst\n  extra fields not permitted",
+            id="unknown-column",
+        ),
+        pytest.param(
+            file(row(ROOT), columns=[*COLUMNS, "navn"]),
+            "duplicate columns: ['navn']",
+            id="duplicate-column",
+        ),
+        pytest.param(
             # Would otherwise make every row a root
             file(row(ROOT), columns=[c for c in COLUMNS if c != "kode_parent"]),
             "__root__ -> 0 -> kode_parent\n  field required",

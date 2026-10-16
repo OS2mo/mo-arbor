@@ -17,6 +17,7 @@ from typing import Any
 
 from more_itertools import duplicates_everseen
 from pydantic import BaseModel
+from pydantic import Extra
 from pydantic import Field
 from pydantic import ValidationError
 from pydantic import root_validator
@@ -27,11 +28,11 @@ class InvalidFile(Exception):
     pass
 
 
-class Row(BaseModel, frozen=True, anystr_strip_whitespace=True):
+class Row(BaseModel, frozen=True, anystr_strip_whitespace=True, extra=Extra.forbid):
     """A row in a code system file.
 
-    Other columns, such as aktiv, dw_is_deleted and the timestamps, are
-    ignored. A unit gone from the file is terminated.
+    Every column is read, so a file with other columns is rejected. A unit gone
+    from the file is terminated.
     """
 
     user_key: str = Field(alias="kode", min_length=1)
@@ -45,6 +46,11 @@ class Row(BaseModel, frozen=True, anystr_strip_whitespace=True):
     # which the event handler looks up
     org_unit_type: str = Field(alias="type", min_length=1)
     org_unit_level: str = Field(alias="niveau", min_length=1)
+    # Not used
+    active: str = Field(alias="aktiv")
+    deleted: str = Field(alias="dw_is_deleted")
+    inserted: str = Field(alias="dw_timestamp_insert")
+    updated: str = Field(alias="dw_timestamp_update")
 
     @validator("parent_user_key", "validity_to", pre=True)
     def empty_is_none(cls, v: Any) -> Any:
@@ -206,6 +212,11 @@ class Rows(BaseModel):
             InvalidFile: If the file fails validation.
         """
         reader = csv.DictReader(io.StringIO(text, newline=""), delimiter=";")
+        # The reader keeps the last of two columns with the same name. The header
+        # is None for an empty file, which then fails as having no root.
+        duplicates = list(duplicates_everseen(reader.fieldnames or []))
+        if duplicates:
+            raise InvalidFile(f"duplicate columns: {duplicates}")
         try:
             return cls.parse_obj(list(reader)).to_units()
         except ValidationError as e:
