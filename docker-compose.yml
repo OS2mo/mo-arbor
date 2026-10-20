@@ -20,7 +20,7 @@ services:
       # AMQP connection settings to be present.
       FASTRAMQPI__AMQP__URL: "amqp://guest:guest@msg-broker:5672/"
 
-      CODE_SYSTEMS: '[{"name": "sor", "file_pattern": "region_sor_%Y%m%d_%H%M%S.csv"}, {"name": "okosted", "file_pattern": "region_okosted_%Y%m%d_%H%M%S.csv"}]'
+      CODE_SYSTEMS: '[{"name": "sor", "file_pattern": "region_sor_%Y%m%d_%H%M%S.csv", "uuid_namespace": "sor.dk"}, {"name": "okosted", "file_pattern": "region_okosted_%Y%m%d_%H%M%S.csv", "uuid_namespace": "okosted"}]'
 
       # Database
       FASTRAMQPI__DATABASE__USER: "fastramqpi"

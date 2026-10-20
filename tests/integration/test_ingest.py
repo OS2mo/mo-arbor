@@ -281,6 +281,7 @@ async def test_invalid_last_ingested_dump(
                 {
                     "name": "sor",
                     "file_pattern": "region_sor_%Y%m%d_%H%M%S.csv",
+                    "uuid_namespace": "sor.dk",
                     "max_terminations": 1,
                 }
             ]
