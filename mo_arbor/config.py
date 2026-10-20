@@ -26,6 +26,10 @@ class CodeSystem(BaseModel, frozen=True):
     # rsyd_sor_%Y%m%d_%H%M%S.csv.
     file_pattern: str
 
+    # Refuse to ingest a dump that removes more units than this, unless forced.
+    # Protects against a truncated dump terminating half the tree.
+    max_terminations: int = 10
+
     @property
     def rows_model(self) -> type[Rows]:
         """The model of the code system's dumps, which checks its codes."""
