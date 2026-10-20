@@ -13,6 +13,7 @@ from tests.helpers import file
 from tests.helpers import row
 
 PATTERN = "region_sor_%Y%m%d_%H%M%S.csv"
+OTHER_PATTERN = "region_other_%Y%m%d_%H%M%S.csv"
 VALID = file(row("R"))
 VALID_WITH_CHILD = file(row("R"), row("C", parent="R"))
 # The same code twice
@@ -21,6 +22,8 @@ INVALID = file(row("R"), row("R"))
 APRIL_30 = "region_sor_20260430_120000.csv"
 MAY_1_MORNING = "region_sor_20260501_080000.csv"
 MAY_1_EVENING = "region_sor_20260501_200000.csv"
+OTHER_APRIL_30 = "region_other_20260430_120000.csv"
+OTHER_MAY_1 = "region_other_20260501_120000.csv"
 
 
 @pytest.mark.integration_test
@@ -89,3 +92,54 @@ async def test_load_invalid_file(
     await upload_file(APRIL_30, INVALID)
     with pytest.raises(InvalidFile):
         await DumpStore(PATTERN).load(graphql_client, APRIL_30)
+
+
+@pytest.mark.integration_test
+async def test_load_is_cached(
+    graphql_client: GraphQLClient, upload_file: UploadFile
+) -> None:
+    """Every event reads the newest dump; don't download it for each."""
+    store = DumpStore(PATTERN)
+    await upload_file(APRIL_30, VALID)
+    await store.load(graphql_client, APRIL_30)
+
+    # Overwriting the file in MO is not seen while it is cached
+    await upload_file(APRIL_30, VALID_WITH_CHILD)
+    dump = await store.load(graphql_client, APRIL_30)
+    assert dump.units.keys() == {"R"}
+
+
+@pytest.mark.integration_test
+async def test_cache_is_per_code_system(
+    graphql_client: GraphQLClient, upload_file: UploadFile
+) -> None:
+    """Loading another code system's dumps does not push this one's out."""
+    store = DumpStore(PATTERN)
+    other = DumpStore(OTHER_PATTERN)
+    await upload_file(APRIL_30, VALID)
+    await store.load(graphql_client, APRIL_30)
+
+    # Two dumps would fill a shared cache
+    for name in [OTHER_APRIL_30, OTHER_MAY_1]:
+        await upload_file(name, VALID)
+        await other.load(graphql_client, name)
+
+    # Still cached, so the overwritten file is not read
+    await upload_file(APRIL_30, VALID_WITH_CHILD)
+    dump = await store.load(graphql_client, APRIL_30)
+    assert dump.units.keys() == {"R"}
+
+
+@pytest.mark.integration_test
+async def test_invalid_file_is_not_cached(
+    graphql_client: GraphQLClient, upload_file: UploadFile
+) -> None:
+    """The supplier fixes a broken dump by uploading it again."""
+    store = DumpStore(PATTERN)
+    await upload_file(APRIL_30, INVALID)
+    with pytest.raises(InvalidFile):
+        await store.load(graphql_client, APRIL_30)
+
+    await upload_file(APRIL_30, VALID)
+    dump = await store.load(graphql_client, APRIL_30)
+    assert dump.units.keys() == {"R"}

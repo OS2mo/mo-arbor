@@ -10,6 +10,7 @@ import base64
 from datetime import date
 from datetime import datetime
 
+from async_lru import alru_cache
 from more_itertools import one
 from pydantic import BaseModel
 
@@ -50,6 +51,11 @@ class DumpStore:
     def __init__(self, pattern: str, rows_model: type[Rows] = Rows) -> None:
         self.pattern = pattern
         self.rows_model = rows_model
+        # Each event reads the newest dump, and ingest also the previous one.
+        # Errors are not cached, so a fixed dump uploaded again is read again.
+        # Each code system has its own cache, which a decorator on the method
+        # would share between them.
+        self.load = alru_cache(maxsize=2)(self._load)
 
     def dump_time(self, file_name: str) -> datetime | None:
         """The time of the dump in a file name, or None if it is not a dump."""
@@ -85,7 +91,7 @@ class DumpStore:
         """
         return await self.load(mo, await self.newest_file_name(mo))
 
-    async def load(self, mo: GraphQLClient, file_name: str) -> Dump:
+    async def _load(self, mo: GraphQLClient, file_name: str) -> Dump:
         """Load and parse a dump.
 
         Raises:
