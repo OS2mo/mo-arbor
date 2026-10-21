@@ -3006,6 +3006,21 @@ files = [
 filelock = ">=3.15.4"
 
 [[package]]
+name = "python-stdnum"
+version = "2.2"
+description = "Python module to handle standardized numbers and codes"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "python_stdnum-2.2-py3-none-any.whl", hash = "sha256:bdf98fd117a0ca152e4047aa8ad254bae63853d4e915ddd4e0effb33ba0e9260"},
+    {file = "python_stdnum-2.2.tar.gz", hash = "sha256:e95fcfa858a703d4a40130cb3eaac133c60d8808a7f3c98efeedac968c2479b9"},
+]
+
+[package.extras]
+soap = ["zeep"]
+
+[[package]]
 name = "pytokens"
 version = "0.4.1"
 description = "A Fast, spec compliant Python 3.14+ tokenizer that runs on older Pythons."
@@ -3850,4 +3865,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "e4d9b9cd1fd1d4d60bf5e2a5300ea2bdcd23f22dc52324fca88a07e651907b6a"
+content-hash = "72d842221ef4a1811cb5b75fc67d393b870517179af54f5ddcc69fea4830a0cc"
