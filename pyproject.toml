@@ -20,7 +20,7 @@ python-stdnum = "^2"
 [tool.poetry.group.pre-commit.dependencies]
 mypy = "^2"
 pre-commit = "^4"
-ruff = "^0.16"
+ruff = "^0.17"
 deptry = "^0.25"
 
 [tool.poetry.group.test.dependencies]
