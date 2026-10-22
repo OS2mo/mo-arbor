@@ -5,8 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 
 # mo-arbor
 OS2mo integration that syncs organisation units from CSV files, such as
-[SOR](https://sundhedsdatastyrelsen.dk/data-og-registre/nationale-sundhedsregistre/sundhedsvaesenets-organisationsregister)
-and Økosted.
+[SOR](https://sundhedsdatastyrelsen.dk/data-og-registre/nationale-sundhedsregistre/sundhedsvaesenets-organisationsregister).
 
 
 ## Usage
