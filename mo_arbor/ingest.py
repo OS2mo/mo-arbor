@@ -6,6 +6,7 @@ import asyncio
 
 import structlog
 from fastapi import APIRouter
+from fastapi import HTTPException
 from fastramqpi.depends import Sessionmaker
 from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
@@ -105,18 +106,26 @@ async def ingest(
     mo: depends.GraphQLClient,
     dump_stores: depends.DumpStores,
     sessionmaker: Sessionmaker,
+    code_system: str | None = None,
 ) -> dict[str, Ingested | None]:
     """Send a unit event for each unit that changed since the last ingest.
 
-    Ingests every code system. The newest dump of a code system is compared to
-    its last ingested one. Dumps in between are skipped, as the event handler
-    always reads the newest dump.
+    Ingests every code system, or only the one named by `code_system`. The
+    newest dump of a code system is compared to its last ingested one. Dumps
+    in between are skipped, as the event handler always reads the newest dump.
 
     A code system without dumps is logged as an error, as its `file_pattern`
     may be wrong.
     """
+    if code_system is None:
+        code_systems = settings.code_systems
+    else:
+        code_systems = [c for c in settings.code_systems if c.name == code_system]
+    if not code_systems:
+        raise HTTPException(status_code=404, detail="Unknown code system")
+
     results: dict[str, Ingested | None] = {}
-    for c in settings.code_systems:
+    for c in code_systems:
         try:
             results[c.name] = await ingest_code_system(
                 c, mo, dump_stores[c.name], sessionmaker

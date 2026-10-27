@@ -62,8 +62,10 @@ async def ingest_all(test_client: AsyncClient) -> dict[str, Ingested | None]:
 
 
 async def ingest(test_client: AsyncClient) -> Ingested | None:
-    """What was ingested of SOR."""
-    ingested = await ingest_all(test_client)
+    """Ingest SOR only."""
+    r = await test_client.post("/ingest", params={"code_system": "sor"})
+    r.raise_for_status()
+    ingested = parse_obj_as(dict[str, Ingested | None], r.json())
     return ingested["sor"]
 
 
@@ -102,6 +104,12 @@ async def test_code_systems_are_ingested_separately(
     }
     assert await handle(graphql_client, sor) == set()
     assert await handle(graphql_client, okosted) == {"X", "Y"}
+
+
+@pytest.mark.integration_test
+async def test_unknown_code_system(test_client: AsyncClient) -> None:
+    r = await test_client.post("/ingest", params={"code_system": "unknown"})
+    assert r.status_code == 404
 
 
 @pytest.mark.integration_test
