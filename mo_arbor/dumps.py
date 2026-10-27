@@ -78,7 +78,7 @@ class DumpStore:
             if time is not None:
                 dumps.append((time, file.file_name))
         if not dumps:
-            raise DumpNotFound("there are no dumps in the file store")
+            raise DumpNotFound(f"no dumps match {self.pattern}")
         _, file_name = max(dumps)
         return file_name
 
