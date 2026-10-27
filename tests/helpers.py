@@ -1,9 +1,15 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
-"""Build code system files for tests."""
+"""Helpers for tests."""
 
 import csv
 import io
+from collections.abc import Awaitable
+from collections.abc import Callable
+
+# The integration tests' `upload_file` fixture, called with a file name and the
+# file's contents
+UploadFile = Callable[[str, str], Awaitable[None]]
 
 COLUMNS = [
     "kode",
