@@ -66,9 +66,11 @@ async def ingest_all(test_client: AsyncClient) -> dict[str, Ingested | None]:
     return parse_obj_as(dict[str, Ingested | None], r.json())
 
 
-async def ingest(test_client: AsyncClient) -> Ingested | None:
+async def ingest(test_client: AsyncClient, dry_run: bool = False) -> Ingested | None:
     """Ingest SOR only."""
-    r = await test_client.post("/ingest", params={"code_system": "sor"})
+    r = await test_client.post(
+        "/ingest", params={"code_system": "sor", "dry_run": dry_run}
+    )
     r.raise_for_status()
     ingested = parse_obj_as(dict[str, Ingested | None], r.json())
     return ingested["sor"]
@@ -269,3 +271,23 @@ async def test_invalid_last_ingested_dump(
     assert await handle(graphql_client, listener) == set()
     (error,) = not_ingested(cap_logs)
     assert error.startswith(f"{APRIL_30}: ")
+
+
+@pytest.mark.integration_test
+async def test_dry_run(
+    test_client: AsyncClient, graphql_client: GraphQLClient, upload_file: UploadFile
+) -> None:
+    listener = await listen(graphql_client, "sor")
+    await upload_file(APRIL_30, ROOT_A_B)
+    assert await ingest(test_client) == ingested(APRIL_30, added={ROOT, A, B})
+    assert await handle(graphql_client, listener) == {ROOT, A, B}
+
+    await upload_file(MAY_1, file(row(ROOT), row(A, parent=ROOT)))
+    expected = ingested(MAY_1, removed={B})
+
+    assert await ingest(test_client, dry_run=True) == expected
+    assert await handle(graphql_client, listener) == set()
+
+    # Nothing was recorded, so the real ingest does the same
+    assert await ingest(test_client) == expected
+    assert await handle(graphql_client, listener) == {B}

@@ -55,6 +55,7 @@ async def ingest_code_system(
     mo: GraphQLClient,
     store: DumpStore,
     sessionmaker: async_sessionmaker[AsyncSession],
+    dry_run: bool,
 ) -> Ingested | None:
     log = logger.bind(code_system=code_system.name)
     file_name = await store.newest_file_name(mo)
@@ -82,7 +83,10 @@ async def ingest_code_system(
         added=len(changes.added),
         changed=len(changes.changed),
         removed=len(changes.removed),
+        dry_run=dry_run,
     )
+    if dry_run:
+        return ingested
     # Events are sent before the dump is recorded, so if we crash in between,
     # the next ingest sends them again rather than losing them. An event sent
     # twice is harmless, as the handler reads the newest dump either way.
@@ -108,6 +112,7 @@ async def ingest(
     dump_stores: depends.DumpStores,
     sessionmaker: Sessionmaker,
     code_system: str | None = None,
+    dry_run: bool = False,
 ) -> dict[str, Ingested | None]:
     """Send a unit event for each unit that changed since the last ingest.
 
@@ -120,6 +125,9 @@ async def ingest(
 
     Nothing is ingested for a code system whose newest dump is invalid, or
     whose last ingested dump is gone or invalid. These are logged as errors.
+
+    With `dry_run`, returns what would be ingested without sending events or
+    recording anything.
     """
     if code_system is None:
         code_systems = settings.code_systems
@@ -132,7 +140,7 @@ async def ingest(
     for c in code_systems:
         try:
             results[c.name] = await ingest_code_system(
-                c, mo, dump_stores[c.name], sessionmaker
+                c, mo, dump_stores[c.name], sessionmaker, dry_run=dry_run
             )
         except (DumpNotFound, InvalidFile) as e:
             logger.error("Not ingested", code_system=c.name, error=str(e))
