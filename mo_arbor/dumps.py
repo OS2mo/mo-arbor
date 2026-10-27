@@ -108,6 +108,9 @@ class DumpStore:
             files.objects,
             too_short=DumpNotFound(f"{file_name} is not in the file store"),
         )
-        text = decode(file.base64_contents)
-        units = self.rows_model.parse(text)
+        try:
+            text = decode(file.base64_contents)
+            units = self.rows_model.parse(text)
+        except InvalidFile as e:
+            raise InvalidFile(f"{file_name}: {e}") from e
         return Dump(file_name=file_name, date=time.date(), units=units)
