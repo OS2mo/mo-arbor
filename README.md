@@ -51,6 +51,9 @@ Ingest skips a code system and logs an error when:
 - the last ingested dump is gone or invalid, as the removed codes cannot be
   found without it.
 
+The other code systems are still ingested, but the request fails, so the cron
+job fails.
+
 `?dry_run=true` shows what would be sent without sending it, and
 `?code_system=<name>` ingests only that code system.
 

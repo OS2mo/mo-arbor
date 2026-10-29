@@ -137,7 +137,8 @@ async def ingest(
     Nothing is ingested for a code system whose newest dump is invalid, whose
     last ingested dump is gone or invalid, or whose newest dump removes more
     than its `max_terminations` units unless `force` is set. These are logged
-    as errors.
+    as errors, and the request fails after the other code systems are
+    ingested.
 
     With `dry_run`, returns what would be ingested without sending events or
     recording anything.
@@ -150,6 +151,7 @@ async def ingest(
         raise HTTPException(status_code=404, detail="Unknown code system")
 
     results: dict[str, Ingested | None] = {}
+    failed = []
     for c in code_systems:
         try:
             results[c.name] = await ingest_code_system(
@@ -157,5 +159,9 @@ async def ingest(
             )
         except (DumpNotFound, InvalidFile, TooManyTerminations) as e:
             logger.error("Not ingested", code_system=c.name, error=str(e))
-            results[c.name] = None
+            failed.append(c.name)
+    if failed:
+        raise HTTPException(
+            status_code=500, detail=f"Not ingested: {', '.join(failed)}"
+        )
     return results

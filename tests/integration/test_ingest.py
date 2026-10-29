@@ -9,6 +9,7 @@ from uuid import UUID
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
+from httpx import HTTPStatusError
 from pydantic import parse_obj_as
 from structlog.testing import capture_logs
 
@@ -61,10 +62,9 @@ async def handle(graphql_client: GraphQLClient, listener: UUID) -> set[str]:
         await graphql_client._testing__acknowledge_event(event.token)
 
 
-async def ingest_all(test_client: AsyncClient) -> dict[str, Ingested | None]:
+async def ingest_all(test_client: AsyncClient) -> None:
     r = await test_client.post("/ingest")
     r.raise_for_status()
-    return parse_obj_as(dict[str, Ingested | None], r.json())
 
 
 async def ingest(
@@ -95,13 +95,19 @@ def not_ingested(cap_logs: list[MutableMapping[str, Any]]) -> list[str]:
 
 
 @pytest.mark.integration_test
-async def test_nothing_to_ingest(
+async def test_no_dumps(
     test_client: AsyncClient, graphql_client: GraphQLClient
 ) -> None:
+    """Fails, as the code systems' file patterns may be wrong."""
     listener = await listen(graphql_client, "sor")
 
-    assert await ingest_all(test_client) == {"sor": None, "okosted": None}
+    with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):
+        await ingest_all(test_client)
     assert await handle(graphql_client, listener) == set()
+    assert not_ingested(cap_logs) == [
+        "no dumps match region_sor_%Y%m%d_%H%M%S.csv",
+        "no dumps match region_okosted_%Y%m%d_%H%M%S.csv",
+    ]
 
 
 @pytest.mark.integration_test
@@ -110,17 +116,15 @@ async def test_code_systems_are_ingested_separately(
 ) -> None:
     """Each code system has its own dumps and events.
 
-    An invalid dump in one does not stop the others.
+    An invalid dump in one does not stop the others, but ingest fails.
     """
     sor = await listen(graphql_client, "sor")
     okosted = await listen(graphql_client, "okosted")
     await upload_file(APRIL_30, "not a dump")
     await upload_file(OKOSTED_APRIL_30, file(row("X"), row("Y", parent="X")))
 
-    assert await ingest_all(test_client) == {
-        "sor": None,
-        "okosted": ingested(OKOSTED_APRIL_30, added={"X", "Y"}),
-    }
+    with pytest.raises(HTTPStatusError):
+        await ingest_all(test_client)
     assert await handle(graphql_client, sor) == set()
     assert await handle(graphql_client, okosted) == {"X", "Y"}
 
@@ -212,8 +216,8 @@ async def test_invalid_dump_is_not_ingested(
 
     await upload_file(MAY_1, "not a dump")
 
-    with capture_logs() as cap_logs:
-        assert await ingest(test_client) is None
+    with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):
+        await ingest(test_client)
     assert await handle(graphql_client, listener) == set()
     (error,) = not_ingested(cap_logs)
     assert error.startswith(f"{MAY_1}: ")
@@ -241,8 +245,8 @@ async def test_last_ingested_dump_not_found(
         session.add(LastIngested(code_system="sor", file_name=APRIL_30))
     await upload_file(MAY_1, ROOT_A_B)
 
-    with capture_logs() as cap_logs:
-        assert await ingest(test_client) is None
+    with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):
+        await ingest(test_client)
     assert await handle(graphql_client, listener) == set()
     assert not_ingested(cap_logs) == [f"{APRIL_30} is not in the file store"]
 
@@ -269,8 +273,8 @@ async def test_invalid_last_ingested_dump(
     app.state.context["user_context"]["dump_stores"]["sor"].load.cache_clear()
     await upload_file(MAY_1, file(row(ROOT), row(A, parent=ROOT)))
 
-    with capture_logs() as cap_logs:
-        assert await ingest(test_client) is None
+    with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):
+        await ingest(test_client)
     assert await handle(graphql_client, listener) == set()
     (error,) = not_ingested(cap_logs)
     assert error.startswith(f"{APRIL_30}: ")
@@ -301,8 +305,8 @@ async def test_too_many_terminations_are_not_ingested(
     # Removes A and B, one more than max_terminations
     await upload_file(MAY_1, file(row(ROOT)))
 
-    with capture_logs() as cap_logs:
-        assert await ingest(test_client) is None
+    with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):
+        await ingest(test_client)
     assert await handle(graphql_client, listener) == set()
     assert not_ingested(cap_logs) == [f"{MAY_1} has more than 1 terminations"]
 
