@@ -28,3 +28,7 @@ query ReadFile($file_store: FileStore!, $file_name: String!) {
     }
   }
 }
+
+mutation SendEvent($input: EventSendInput!) {
+  event_send(input: $input)
+}
