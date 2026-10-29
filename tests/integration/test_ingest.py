@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
+import json
 from collections.abc import Iterable
 from collections.abc import MutableMapping
 from typing import Any
@@ -66,10 +67,12 @@ async def ingest_all(test_client: AsyncClient) -> dict[str, Ingested | None]:
     return parse_obj_as(dict[str, Ingested | None], r.json())
 
 
-async def ingest(test_client: AsyncClient, dry_run: bool = False) -> Ingested | None:
+async def ingest(
+    test_client: AsyncClient, dry_run: bool = False, force: bool = False
+) -> Ingested | None:
     """Ingest SOR only."""
     r = await test_client.post(
-        "/ingest", params={"code_system": "sor", "dry_run": dry_run}
+        "/ingest", params={"code_system": "sor", "dry_run": dry_run, "force": force}
     )
     r.raise_for_status()
     ingested = parse_obj_as(dict[str, Ingested | None], r.json())
@@ -271,6 +274,44 @@ async def test_invalid_last_ingested_dump(
     assert await handle(graphql_client, listener) == set()
     (error,) = not_ingested(cap_logs)
     assert error.startswith(f"{APRIL_30}: ")
+
+
+@pytest.mark.integration_test
+@pytest.mark.envvar(
+    {
+        "CODE_SYSTEMS": json.dumps(
+            [
+                {
+                    "name": "sor",
+                    "file_pattern": "region_sor_%Y%m%d_%H%M%S.csv",
+                    "max_terminations": 1,
+                }
+            ]
+        )
+    }
+)
+async def test_too_many_terminations_are_not_ingested(
+    test_client: AsyncClient, graphql_client: GraphQLClient, upload_file: UploadFile
+) -> None:
+    listener = await listen(graphql_client, "sor")
+    await upload_file(APRIL_30, ROOT_A_B)
+    assert await ingest(test_client) == ingested(APRIL_30, added={ROOT, A, B})
+    assert await handle(graphql_client, listener) == {ROOT, A, B}
+
+    # Removes A and B, one more than max_terminations
+    await upload_file(MAY_1, file(row(ROOT)))
+
+    with capture_logs() as cap_logs:
+        assert await ingest(test_client) is None
+    assert await handle(graphql_client, listener) == set()
+    assert not_ingested(cap_logs) == [f"{MAY_1} has more than 1 terminations"]
+
+    # An operator checks the dump and forces it through
+    expected = ingested(MAY_1, removed={A, B})
+    assert await ingest(test_client, dry_run=True, force=True) == expected
+    assert await handle(graphql_client, listener) == set()
+    assert await ingest(test_client, force=True) == expected
+    assert await handle(graphql_client, listener) == {A, B}
 
 
 @pytest.mark.integration_test

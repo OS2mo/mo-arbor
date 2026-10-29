@@ -34,6 +34,10 @@ class Ingested(BaseModel):
     changes: Diff
 
 
+class TooManyTerminations(Exception):
+    pass
+
+
 async def send_events(
     mo: GraphQLClient, code_system: CodeSystem, user_keys: set[str]
 ) -> None:
@@ -56,6 +60,7 @@ async def ingest_code_system(
     store: DumpStore,
     sessionmaker: async_sessionmaker[AsyncSession],
     dry_run: bool,
+    force: bool,
 ) -> Ingested | None:
     log = logger.bind(code_system=code_system.name)
     file_name = await store.newest_file_name(mo)
@@ -76,6 +81,11 @@ async def ingest_code_system(
 
     changes = diff(previous_units, dump.units)
     ingested = Ingested(file_name=file_name, changes=changes)
+
+    if len(changes.removed) > code_system.max_terminations and not force:
+        raise TooManyTerminations(
+            f"{file_name} has more than {code_system.max_terminations} terminations"
+        )
 
     log.info(
         "Ingesting dump",
@@ -113,6 +123,7 @@ async def ingest(
     sessionmaker: Sessionmaker,
     code_system: str | None = None,
     dry_run: bool = False,
+    force: bool = False,
 ) -> dict[str, Ingested | None]:
     """Send a unit event for each unit that changed since the last ingest.
 
@@ -123,8 +134,10 @@ async def ingest(
     A code system without dumps is logged as an error, as its `file_pattern`
     may be wrong.
 
-    Nothing is ingested for a code system whose newest dump is invalid, or
-    whose last ingested dump is gone or invalid. These are logged as errors.
+    Nothing is ingested for a code system whose newest dump is invalid, whose
+    last ingested dump is gone or invalid, or whose newest dump removes more
+    than its `max_terminations` units unless `force` is set. These are logged
+    as errors.
 
     With `dry_run`, returns what would be ingested without sending events or
     recording anything.
@@ -140,9 +153,9 @@ async def ingest(
     for c in code_systems:
         try:
             results[c.name] = await ingest_code_system(
-                c, mo, dump_stores[c.name], sessionmaker, dry_run=dry_run
+                c, mo, dump_stores[c.name], sessionmaker, dry_run=dry_run, force=force
             )
-        except (DumpNotFound, InvalidFile) as e:
+        except (DumpNotFound, InvalidFile, TooManyTerminations) as e:
             logger.error("Not ingested", code_system=c.name, error=str(e))
             results[c.name] = None
     return results
