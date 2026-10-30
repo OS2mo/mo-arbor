@@ -24,6 +24,18 @@ def mo_datetime(d: date) -> datetime:
     return datetime.combine(d, time.min, tzinfo=MO_TIMEZONE)
 
 
+def unit_end(period_ends: set[datetime | None]) -> date | None:
+    """The end of a unit in MO, from the ends of its periods; None if open-ended.
+
+    The current period ends where the next one starts, such as at a name
+    change planned for later. The unit ends where its last period does.
+    """
+    if None in period_ends:
+        return None
+    # Only for mypy, which does not see that no end is None here
+    return max(end.date() for end in period_ends if end is not None)
+
+
 async def get_class(mo: GraphQLClient, facet: str, user_key: str) -> UUID:
     classes = await mo.get_class(facet, user_key)
     not_found = ClassNotFound(f"no {facet} class with user_key {user_key!r}")
