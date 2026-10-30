@@ -7,6 +7,14 @@ mutation _Testing_DeclareEventListener($input: ListenerCreateInput!) {
   }
 }
 
+query _Testing_ListEvents($listener: UUID!) {
+  events(filter: {listeners: {uuids: [$listener]}}) {
+    objects {
+      subject
+    }
+  }
+}
+
 query _Testing_FetchEvent($listener: UUID!) {
   event_fetch(filter: {listener: $listener}) {
     subject

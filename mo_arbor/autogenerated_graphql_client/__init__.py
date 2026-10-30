@@ -18,6 +18,9 @@ from ._testing__get_org_unit_history import (
 from ._testing__get_org_unit_history import (
     TestingGetOrgUnitHistoryOrgUnitsObjectsValiditiesValidity,
 )
+from ._testing__list_events import TestingListEvents
+from ._testing__list_events import TestingListEventsEvents
+from ._testing__list_events import TestingListEventsEventsObjects
 from .async_base_client import AsyncBaseClient
 from .base_model import BaseModel
 from .client import GraphQLClient
@@ -387,6 +390,9 @@ __all__ = [
     "TestingGetOrgUnitHistoryOrgUnitsObjects",
     "TestingGetOrgUnitHistoryOrgUnitsObjectsValidities",
     "TestingGetOrgUnitHistoryOrgUnitsObjectsValiditiesValidity",
+    "TestingListEvents",
+    "TestingListEventsEvents",
+    "TestingListEventsEventsObjects",
     "UpdateOrgUnit",
     "UpdateOrgUnitOrgUnitUpdate",
     "UuidsBoundClassFilter",

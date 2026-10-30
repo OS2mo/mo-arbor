@@ -14,6 +14,8 @@ from ._testing__fetch_event import TestingFetchEvent
 from ._testing__fetch_event import TestingFetchEventEventFetch
 from ._testing__get_org_unit_history import TestingGetOrgUnitHistory
 from ._testing__get_org_unit_history import TestingGetOrgUnitHistoryOrgUnits
+from ._testing__list_events import TestingListEvents
+from ._testing__list_events import TestingListEventsEvents
 from .async_base_client import AsyncBaseClient
 from .create_org_unit import CreateOrgUnit
 from .create_org_unit import CreateOrgUnitOrgUnitCreate
@@ -196,6 +198,21 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return TestingDeclareEventListener.parse_obj(data).event_listener_declare
+
+    async def _testing__list_events(self, listener: UUID) -> TestingListEventsEvents:
+        query = gql("""
+            query _Testing_ListEvents($listener: UUID!) {
+              events(filter: {listeners: {uuids: [$listener]}}) {
+                objects {
+                  subject
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"listener": listener}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return TestingListEvents.parse_obj(data).events
 
     async def _testing__fetch_event(
         self, listener: UUID
