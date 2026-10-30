@@ -11,6 +11,8 @@ from mo_arbor.config import CodeSystem
 from mo_arbor.config import CodeSystemName
 from mo_arbor.config import _Settings
 from mo_arbor.sor import SorRows
+from tests.helpers import file
+from tests.helpers import row
 
 PATTERN = "customer_system_%Y%m%d_%H%M%S.csv"
 
@@ -18,6 +20,17 @@ PATTERN = "customer_system_%Y%m%d_%H%M%S.csv"
 @pytest.mark.parametrize("name,rows_model", [("sor", SorRows), ("okosted", Rows)])
 def test_rows_model_by_name(name: CodeSystemName, rows_model: type[Rows]) -> None:
     assert CodeSystem(name=name, file_pattern=PATTERN).rows_model is rows_model
+
+
+def test_parent() -> None:
+    """The roots are put under the root, if the code system has one."""
+    root = UUID("4f3a9c2e-1b7d-4e8a-9f60-2c5d8b1a7e43")
+    sor = CodeSystem(name="sor", file_pattern=PATTERN)
+    okosted = CodeSystem(name="okosted", file_pattern=PATTERN, root=root)
+    units = Rows.parse(file(row("R"), row("C", parent="R")))
+    assert okosted.parent_uuid(units["R"]) == root
+    assert okosted.parent_uuid(units["C"]) == okosted.org_unit_uuid("R")
+    assert sor.parent_uuid(units["R"]) is None
 
 
 def test_unknown_code_system() -> None:
