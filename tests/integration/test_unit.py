@@ -22,6 +22,7 @@ from tests.helpers import row
 # Made-up codes in the shape of real ones, with valid check digits
 ROOT = "1001000016005"
 CHILD = "100001000016006"
+SIBLING = "1000001000016004"
 
 MARCH_31 = "region_sor_20260331_120000.csv"
 APRIL_1 = "region_sor_20260401_120000.csv"
@@ -146,6 +147,150 @@ async def test_code_systems_are_separate_trees(
     current = one(r.objects).current
     assert current is not None
     assert current.name == "Root"
+
+
+@pytest.mark.integration_test
+@pytest.mark.usefixtures("region", "klinisk_enhed", "n1")
+async def test_unit_is_updated_from_the_dump_date(
+    trigger_org_units: Callable[[CodeSystem, list[str]], Awaitable[None]],
+    graphql_client: GraphQLClient,
+    upload_file: UploadFile,
+    sor: CodeSystem,
+) -> None:
+    root = row(ROOT, name="Root", org_unit_type="region")
+    child = row(CHILD, parent=ROOT, name="Afdeling", validity_from="2020-01-01")
+    await upload_file(MARCH_31, file(root, child))
+    await trigger_org_units(sor, [ROOT, CHILD])
+
+    child = row(CHILD, parent=ROOT, name="Renamed", validity_from="2020-01-01")
+    await upload_file(APRIL_1, file(root, child))
+    await trigger_org_units(sor, [CHILD])
+
+    assert await history(graphql_client, sor.org_unit_uuid(CHILD)) == [
+        ("Afdeling", date(2020, 1, 1), date(2026, 4, 1)),
+        ("Renamed", date(2026, 4, 1), None),
+    ]
+
+
+@pytest.mark.integration_test
+@pytest.mark.usefixtures("region", "klinisk_enhed", "n1")
+async def test_unit_up_to_date_is_not_changed(
+    trigger_org_units: Callable[[CodeSystem, list[str]], Awaitable[None]],
+    graphql_client: GraphQLClient,
+    upload_file: UploadFile,
+    sor: CodeSystem,
+) -> None:
+    root = row(ROOT, name="Root", org_unit_type="region")
+    child = row(CHILD, parent=ROOT, name="Afdeling", validity_from="2020-01-01")
+    await upload_file(MARCH_31, file(root, child))
+    await trigger_org_units(sor, [ROOT, CHILD])
+
+    # The next dump has no changes for the unit
+    await upload_file(APRIL_1, file(root, child))
+    await trigger_org_units(sor, [CHILD])
+
+    assert await history(graphql_client, sor.org_unit_uuid(CHILD)) == [
+        ("Afdeling", date(2020, 1, 1), None)
+    ]
+
+
+@pytest.mark.integration_test
+@pytest.mark.usefixtures("region", "klinisk_enhed", "n1")
+async def test_unit_is_moved(
+    trigger_org_units: Callable[[CodeSystem, list[str]], Awaitable[None]],
+    graphql_client: GraphQLClient,
+    upload_file: UploadFile,
+    sor: CodeSystem,
+) -> None:
+    root = row(ROOT, name="Root", org_unit_type="region")
+    sibling = row(SIBLING, parent=ROOT)
+    child = row(CHILD, parent=ROOT)
+    await upload_file(MARCH_31, file(root, sibling, child))
+    await trigger_org_units(sor, [ROOT, SIBLING, CHILD])
+
+    child = row(CHILD, parent=SIBLING)
+    await upload_file(APRIL_1, file(root, sibling, child))
+    await trigger_org_units(sor, [CHILD])
+
+    r = await graphql_client.get_org_unit(sor.org_unit_uuid(CHILD))
+    current = one(r.objects).current
+    assert current is not None
+    assert current.parent_response is not None
+    assert current.parent_response.uuid == sor.org_unit_uuid(SIBLING)
+
+
+@pytest.mark.integration_test
+@pytest.mark.usefixtures("region", "klinisk_enhed", "n1")
+async def test_type_is_updated(
+    trigger_org_units: Callable[[CodeSystem, list[str]], Awaitable[None]],
+    graphql_client: GraphQLClient,
+    upload_file: UploadFile,
+    sor: CodeSystem,
+    administrativ_enhed: UUID,
+) -> None:
+    root = row(ROOT, name="Root", org_unit_type="region")
+    child = row(
+        CHILD,
+        parent=ROOT,
+        name="Afdeling",
+        validity_from="2020-01-01",
+        org_unit_type="klinisk enhed",
+    )
+    await upload_file(MARCH_31, file(root, child))
+    await trigger_org_units(sor, [ROOT, CHILD])
+
+    child = row(
+        CHILD,
+        parent=ROOT,
+        name="Afdeling",
+        validity_from="2020-01-01",
+        org_unit_type="administrativ enhed",
+    )
+    await upload_file(APRIL_1, file(root, child))
+    await trigger_org_units(sor, [CHILD])
+
+    r = await graphql_client.get_org_unit(sor.org_unit_uuid(CHILD))
+    current = one(r.objects).current
+    assert current is not None
+    assert current.unit_type_response is not None
+    assert current.unit_type_response.uuid == administrativ_enhed
+
+
+@pytest.mark.integration_test
+@pytest.mark.usefixtures("region", "klinisk_enhed", "n1")
+async def test_level_is_updated(
+    trigger_org_units: Callable[[CodeSystem, list[str]], Awaitable[None]],
+    graphql_client: GraphQLClient,
+    upload_file: UploadFile,
+    sor: CodeSystem,
+    n2: UUID,
+) -> None:
+    root = row(ROOT, name="Root", org_unit_type="region")
+    child = row(
+        CHILD,
+        parent=ROOT,
+        name="Afdeling",
+        validity_from="2020-01-01",
+        org_unit_level="N1",
+    )
+    await upload_file(MARCH_31, file(root, child))
+    await trigger_org_units(sor, [ROOT, CHILD])
+
+    child = row(
+        CHILD,
+        parent=ROOT,
+        name="Afdeling",
+        validity_from="2020-01-01",
+        org_unit_level="N2",
+    )
+    await upload_file(APRIL_1, file(root, child))
+    await trigger_org_units(sor, [CHILD])
+
+    r = await graphql_client.get_org_unit(sor.org_unit_uuid(CHILD))
+    current = one(r.objects).current
+    assert current is not None
+    assert current.unit_level_response is not None
+    assert current.unit_level_response.uuid == n2
 
 
 @pytest.mark.integration_test
