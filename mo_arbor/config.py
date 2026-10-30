@@ -82,3 +82,10 @@ class _Settings(BaseSettings):
         if duplicates:
             raise ValueError(f"duplicate code systems: {', '.join(sorted(duplicates))}")
         return v
+
+    def get_code_system(self, name: str) -> CodeSystem | None:
+        """The code system with this name, or None if it is not configured."""
+        for c in self.code_systems:
+            if c.name == name:
+                return c
+        return None
