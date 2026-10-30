@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: MPL-2.0
 from typing import Literal
 from typing import assert_never
+from uuid import NAMESPACE_URL
+from uuid import UUID
+from uuid import uuid5
 
 from fastramqpi.config import Settings as FastRAMQPISettings
 from more_itertools import duplicates_everseen
@@ -20,7 +23,8 @@ class CodeSystem(BaseModel, frozen=True):
     """A code system, such as SOR, whose dumps become a tree of org units."""
 
     # Which code system it is. It is also the namespace of the code system's
-    # events in MO.
+    # events in MO, and part of its units' UUIDs, so renaming a code system
+    # makes MO's existing units unreachable.
     name: CodeSystemName
 
     # File names of the code system's dumps in MO's EXPORTS file store, with
@@ -43,6 +47,10 @@ class CodeSystem(BaseModel, frozen=True):
                 return Rows
             case _:
                 assert_never(self.name)
+
+    def org_unit_uuid(self, user_key: str) -> UUID:
+        namespace = uuid5(NAMESPACE_URL, self.name)
+        return uuid5(namespace, user_key)
 
 
 class _Settings(BaseSettings):

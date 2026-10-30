@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
-
 from typing import cast
+from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
@@ -49,3 +49,15 @@ def test_code_system_names_are_unique() -> None:
     with pytest.raises(ValidationError) as exc_info:
         _Settings(code_systems=[sor, okosted, sor])
     assert "duplicate code systems: sor" in str(exc_info.value)
+
+
+def test_uuids_do_not_change() -> None:
+    """Only this test notices if the way UUIDs are derived changes.
+
+    The other tests get their UUIDs from org_unit_uuid(). A change would make
+    MO's existing units unreachable.
+    """
+    sor = CodeSystem(name="sor", file_pattern=PATTERN)
+    assert sor.org_unit_uuid("1001000016005") == UUID(
+        "bc2ac4b5-32c4-530c-b504-287e326fbe52"
+    )
