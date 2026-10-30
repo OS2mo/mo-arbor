@@ -116,6 +116,15 @@ async def klinisk_enhed(
 
 
 @pytest.fixture
+async def administrativ_enhed(
+    graphql_client: GraphQLClient, org_unit_type_facet: UUID
+) -> UUID:
+    return await _create_class(
+        graphql_client, org_unit_type_facet, "administrativ enhed"
+    )
+
+
+@pytest.fixture
 async def juridisk_enhed(
     graphql_client: GraphQLClient, org_unit_type_facet: UUID
 ) -> UUID:
@@ -126,3 +135,8 @@ async def juridisk_enhed(
 @pytest.fixture
 async def n1(graphql_client: GraphQLClient, org_unit_level_facet: UUID) -> UUID:
     return await _create_class(graphql_client, org_unit_level_facet, "N1")
+
+
+@pytest.fixture
+async def n2(graphql_client: GraphQLClient, org_unit_level_facet: UUID) -> UUID:
+    return await _create_class(graphql_client, org_unit_level_facet, "N2")
