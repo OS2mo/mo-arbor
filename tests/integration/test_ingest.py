@@ -54,12 +54,16 @@ async def handle(graphql_client: GraphQLClient, listener: UUID) -> set[str]:
     Returns their subjects.
     """
     subjects: set[str] = set()
-    while True:
+    # `event_fetch` uses `for update skip locked` in MO, so it returns null if
+    # it overlaps with FastRAMQPI's `graphql_events_quick_retry` fixture.
+    # `list_events` is a plain read, which never skips locked rows, so we ask
+    # that instead.
+    while (await graphql_client._testing__list_events(listener)).objects:
         event = await graphql_client._testing__fetch_event(listener)
-        if event is None:
-            return subjects
-        subjects.add(event.subject)
-        await graphql_client._testing__acknowledge_event(event.token)
+        if event is not None:
+            subjects.add(event.subject)
+            await graphql_client._testing__acknowledge_event(event.token)
+    return subjects
 
 
 async def ingest_all(test_client: AsyncClient) -> None:
