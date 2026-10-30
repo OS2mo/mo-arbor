@@ -4,6 +4,7 @@ import logging
 
 from fastapi import FastAPI
 from fastramqpi.events import GraphQLEvents
+from fastramqpi.events import Listener
 from fastramqpi.events import Namespace
 from fastramqpi.main import FastRAMQPI
 
@@ -27,6 +28,16 @@ def create_app() -> FastAPI:
         graphql_client_cls=GraphQLClient,
         graphql_events=GraphQLEvents(
             declare_namespaces=[Namespace(name=c.name) for c in settings.code_systems],
+            declare_listeners=[
+                Listener(
+                    namespace=c.name,
+                    user_key=f"{c.name}_org_unit",
+                    routing_key="org_unit",
+                    path=f"/{c.name}/org_unit",
+                    parallelism=10,
+                )
+                for c in settings.code_systems
+            ],
         ),
         database_metadata=Base.metadata,
     )
