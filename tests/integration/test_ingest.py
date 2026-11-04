@@ -28,7 +28,7 @@ A = "100001000016006"
 B = "1000001000016004"
 C = "20011000016005"
 
-# File patterns of CODE_SYSTEMS in CI
+# File patterns of CODE_SYSTEMS in tests/conftest.py
 MARCH_31 = "region_sor_20260331_120000.csv"
 APRIL_30 = "region_sor_20260430_120000.csv"
 MAY_1 = "region_sor_20260501_120000.csv"
