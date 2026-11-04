@@ -146,9 +146,10 @@ async def ingest(
     if code_system is None:
         code_systems = settings.code_systems
     else:
-        code_systems = [c for c in settings.code_systems if c.name == code_system]
-    if not code_systems:
-        raise HTTPException(status_code=404, detail="Unknown code system")
+        c = settings.get_code_system(code_system)
+        if c is None:
+            raise HTTPException(status_code=404, detail="Unknown code system")
+        code_systems = [c]
 
     results: dict[str, Ingested | None] = {}
     failed = []
