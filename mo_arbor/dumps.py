@@ -33,6 +33,8 @@ class DumpFile(BaseModel, frozen=True):
     file_name: str
     # The time of the dump, from its name
     time: datetime
+    # When MO last wrote it
+    updated_at: datetime
 
 
 class Dump(BaseModel, frozen=True):
@@ -70,7 +72,7 @@ class DumpStore:
         )
         self.rows_model = rows_model
         # Each event reads the newest dump, and ingest also the previous one.
-        # Errors are not cached, so a fixed dump uploaded again is read again.
+        # Errors are not cached, and an overwritten dump is read again.
         # Each code system has its own cache, which a decorator on the method
         # would share between them.
         self.load = alru_cache(maxsize=2)(self._load)
@@ -93,7 +95,9 @@ class DumpStore:
         for file in files.objects:
             time = self.dump_time(file.file_name)
             if time is not None:
-                dumps[file.file_name] = DumpFile(file_name=file.file_name, time=time)
+                dumps[file.file_name] = DumpFile(
+                    file_name=file.file_name, time=time, updated_at=file.updated_at
+                )
         return dumps
 
     def newest_dump(self, dumps: dict[str, DumpFile]) -> DumpFile:
@@ -117,6 +121,10 @@ class DumpStore:
 
     async def _load(self, mo: GraphQLClient, dump_file: DumpFile) -> Dump:
         """Load and parse a dump.
+
+        A file overwritten after it was listed is read as it is now, but cached
+        under when it was listed. The next listing has the new `updated_at`, so
+        it is read again then.
 
         Raises:
             DumpNotFound: If there is no dump with this name.

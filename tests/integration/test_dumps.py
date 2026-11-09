@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
+from datetime import UTC
 from datetime import date
 from datetime import datetime
 
@@ -30,7 +31,7 @@ OTHER_MAY_1 = "region_other_20260501_120000.csv"
 async def test_list_dumps(
     graphql_client: GraphQLClient, upload_file: UploadFile
 ) -> None:
-    """Only this code system's dumps, with their time."""
+    """Only this code system's dumps, with their time and when each was written."""
     # Only the names are read
     await upload_file(MAY_1_EVENING, "")
     await upload_file(APRIL_30, "")
@@ -41,6 +42,13 @@ async def test_list_dumps(
     dumps = await store.list_dumps(graphql_client)
     assert dumps.keys() == {MAY_1_EVENING, APRIL_30}
     assert dumps[APRIL_30].time == datetime(2026, 4, 30, 12)
+
+    # Overwriting a dump changes only when it was written
+    await upload_file(APRIL_30, "")
+    again = await store.list_dumps(graphql_client)
+    assert again[APRIL_30].updated_at > dumps[APRIL_30].updated_at
+    assert again[APRIL_30].time == dumps[APRIL_30].time
+    assert again[MAY_1_EVENING] == dumps[MAY_1_EVENING]
 
 
 @pytest.mark.integration_test
@@ -71,7 +79,12 @@ async def test_load_newest(
 
 @pytest.mark.integration_test
 async def test_load_missing_file(graphql_client: GraphQLClient) -> None:
-    dump_file = DumpFile(file_name=APRIL_30, time=datetime(2026, 4, 30, 12))
+    # Not in the file store, so when it was written is made up
+    dump_file = DumpFile(
+        file_name=APRIL_30,
+        time=datetime(2026, 4, 30, 12),
+        updated_at=datetime.now(UTC),
+    )
     with pytest.raises(DumpNotFound):
         await DumpStore("sor").load(graphql_client, dump_file)
 
@@ -99,6 +112,23 @@ async def test_load_is_cached(
 
     # The same dump, not read again
     assert await store.load(graphql_client, dumps[APRIL_30]) is dump
+
+
+@pytest.mark.integration_test
+async def test_overwritten_dump_is_read_again(
+    graphql_client: GraphQLClient, upload_file: UploadFile
+) -> None:
+    """The supplier fixes a dump by uploading it again under the same name."""
+    store = DumpStore("sor")
+    await upload_file(APRIL_30, VALID)
+    dumps = await store.list_dumps(graphql_client)
+    await store.load(graphql_client, dumps[APRIL_30])
+
+    await upload_file(APRIL_30, VALID_WITH_CHILD)
+    # Listed again, with when it was written now
+    dumps = await store.list_dumps(graphql_client)
+    dump = await store.load(graphql_client, dumps[APRIL_30])
+    assert dump.units.keys() == {"R", "C"}
 
 
 @pytest.mark.integration_test

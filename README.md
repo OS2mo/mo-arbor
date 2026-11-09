@@ -26,8 +26,8 @@ list of names the integration knows, e.g. `["sor", "okosted"]`.
 The supplier uploads dumps to MO's `EXPORTS` file store. A dump's file name
 ends in the code system's name and the time of the dump, after any prefix,
 e.g. `customer_sor_20261016_094303.csv`. A new dump needs a new time in its
-name, as a dump uploaded again under the same name is not read again, unless
-it was invalid. A dump is a CSV file as described in the supplier's spec
+name, as ingest does not see a dump uploaded again under the same name. A dump
+is a CSV file as described in the supplier's spec
 "Kodesystemfiler til OS2mo"
 ([#69230](https://redmine.magenta.dk/issues/69230)):
 - The rows without a `kode_parent` are roots, which become the top units in
