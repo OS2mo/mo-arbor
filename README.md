@@ -42,16 +42,19 @@ as described in the supplier's spec
 ### Ingest
 A cron job calls `POST /ingest`. For each code system, it compares the newest
 dump with the last ingested one, and sends an `org_unit` event for every unit
-that was added, changed or removed. Dumps in between are skipped, and the
-first ingest sends every unit. Event priorities make MO hand out parents'
-events before their children's, and terminations last, children first.
+that was added, changed or removed. Dumps in between are skipped. Event
+priorities make MO hand out parents' events before their children's, and
+terminations last, children first.
+
+If the last ingested dump is not known, because there is none, it has been
+overwritten since, or the database was lost, the newest dump is compared with
+the code system's units in MO instead: a unit only in the dump is added, a
+unit in both is sent as changed, and a unit only in MO is terminated.
 
 Ingest skips a code system and logs an error when:
 - the newest dump is invalid,
 - it would terminate more than `MAX_TERMINATIONS` units, 10 by default
-  (override with `?force=true`),
-- the last ingested dump is gone or invalid, as the removed codes cannot be
-  found without it.
+  (override with `?force=true`).
 
 The other code systems are still ingested, but the request fails, so the cron
 job fails.

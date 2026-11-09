@@ -13,7 +13,8 @@ def test_parents_first_and_terminations_last_children_first() -> None:
     # The root is renamed, C is added, and A and B are removed
     new = Rows.parse(file(row("R", name="Renamed"), row("C", parent="R")))
 
-    assert priorities(diff(old, new), new, old) == {
+    depths = {k: unit.depth for k, unit in old.items()}
+    assert priorities(diff(old, new), new, depths) == {
         "R": 1,
         "C": 2,
         "A": TERMINATION_PRIORITY - 2,

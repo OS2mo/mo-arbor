@@ -39,3 +39,15 @@ def diff(old: dict[str, Unit], new: dict[str, Unit]) -> Diff:
         changed=changed,
         removed=old.keys() - new.keys(),
     )
+
+
+def full_sync(units: dict[str, Unit], in_mo: set[str]) -> Diff:
+    """Like `diff`, but against the units in MO.
+
+    A unit in both may have changed, so it is sent as changed.
+    """
+    return Diff(
+        added=units.keys() - in_mo,
+        changed=units.keys() & in_mo,
+        removed=in_mo - units.keys(),
+    )

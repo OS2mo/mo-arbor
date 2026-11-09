@@ -3,6 +3,7 @@
 from mo_arbor.code_system_file import Rows
 from mo_arbor.diff import Diff
 from mo_arbor.diff import diff
+from mo_arbor.diff import full_sync
 from tests.helpers import file
 from tests.helpers import row
 
@@ -51,3 +52,9 @@ def test_moved_start_changes_the_children_it_clamps() -> None:
     """A's own row is unchanged, but its start is clamped to R's later one."""
     new = Rows.parse(file(row("R", validity_from="2020-01-01"), row("A", parent="R")))
     assert diff(ROOT_A, new) == Diff(added=set(), changed={"R", "A"}, removed=set())
+
+
+def test_full_sync() -> None:
+    """A unit only MO has is removed, and one in both may have changed."""
+    in_mo = {"R", "X"}
+    assert full_sync(ROOT_A, in_mo) == Diff(added={"A"}, changed={"R"}, removed={"X"})

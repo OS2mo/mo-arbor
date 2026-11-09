@@ -73,3 +73,31 @@ query ReadFile($file_store: FileStore!, $file_name: String!) {
 mutation SendEvent($input: EventSendInput!) {
   event_send(input: $input)
 }
+
+query ListOrgUnits($roots: [UUID!]!, $from_date: DateTime!, $cursor: Cursor) {
+  org_units(
+    filter: {
+      ancestor: {uuids: $roots}
+      from_date: $from_date
+      to_date: null
+    }
+    limit: 1000
+    cursor: $cursor
+  ) {
+    objects {
+      uuid
+      validities(start: $from_date, end: null) {
+        user_key
+        parent_response {
+          uuid
+        }
+        validity {
+          from
+        }
+      }
+    }
+    page_info {
+      next_cursor
+    }
+  }
+}

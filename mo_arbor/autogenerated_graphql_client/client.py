@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -17,6 +18,8 @@ from ._testing__get_org_unit_history import TestingGetOrgUnitHistoryOrgUnits
 from ._testing__list_events import TestingListEvents
 from ._testing__list_events import TestingListEventsEvents
 from .async_base_client import AsyncBaseClient
+from .base_model import UNSET
+from .base_model import UnsetType
 from .create_org_unit import CreateOrgUnit
 from .create_org_unit import CreateOrgUnitOrgUnitCreate
 from .enums import FileStore
@@ -33,6 +36,8 @@ from .input_types import OrganisationUnitTerminateInput
 from .input_types import OrganisationUnitUpdateInput
 from .list_files import ListFiles
 from .list_files import ListFilesFiles
+from .list_org_units import ListOrgUnits
+from .list_org_units import ListOrgUnitsOrgUnits
 from .read_file import ReadFile
 from .read_file import ReadFileFiles
 from .send_event import SendEvent
@@ -184,6 +189,46 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return SendEvent.parse_obj(data).event_send
+
+    async def list_org_units(
+        self,
+        roots: list[UUID],
+        from_date: datetime,
+        cursor: Any | None | UnsetType = UNSET,
+    ) -> ListOrgUnitsOrgUnits:
+        query = gql("""
+            query ListOrgUnits($roots: [UUID!]!, $from_date: DateTime!, $cursor: Cursor) {
+              org_units(
+                filter: {ancestor: {uuids: $roots}, from_date: $from_date, to_date: null}
+                limit: 1000
+                cursor: $cursor
+              ) {
+                objects {
+                  uuid
+                  validities(start: $from_date, end: null) {
+                    user_key
+                    parent_response {
+                      uuid
+                    }
+                    validity {
+                      from
+                    }
+                  }
+                }
+                page_info {
+                  next_cursor
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {
+            "roots": roots,
+            "from_date": from_date,
+            "cursor": cursor,
+        }
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return ListOrgUnits.parse_obj(data).org_units
 
     async def _testing__declare_event_listener(
         self, input: ListenerCreateInput
