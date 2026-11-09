@@ -1,11 +1,14 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
 import base64
+from datetime import UTC
 from datetime import datetime
 
 import pytest
 
 from mo_arbor.code_system_file import InvalidFile
+from mo_arbor.dumps import DumpFile
+from mo_arbor.dumps import DumpNotFound
 from mo_arbor.dumps import DumpStore
 from mo_arbor.dumps import decode
 
@@ -31,6 +34,27 @@ from mo_arbor.dumps import decode
 )
 def test_dump_time(file_name: str, expected: datetime | None) -> None:
     assert DumpStore("sor").dump_time(file_name) == expected
+
+
+def dump_file(time: datetime, updated_at: datetime) -> DumpFile:
+    file_name = f"region_sor_{time:%Y%m%d_%H%M%S}.csv"
+    return DumpFile(file_name=file_name, time=time, updated_at=updated_at)
+
+
+def test_newest_dump() -> None:
+    """By the time in the name, not when the file was written."""
+    written = datetime(2026, 11, 1, tzinfo=UTC)
+    morning = dump_file(datetime(2026, 5, 1, 8), written)
+    evening = dump_file(datetime(2026, 5, 1, 20), written)
+    # Written last, but the oldest dump
+    earlier = dump_file(datetime(2026, 4, 30, 12), datetime(2026, 11, 2, tzinfo=UTC))
+    dumps = {d.file_name: d for d in [morning, evening, earlier]}
+    assert DumpStore("sor").newest_dump(dumps) == evening
+
+
+def test_newest_dump_without_dumps() -> None:
+    with pytest.raises(DumpNotFound):
+        DumpStore("sor").newest_dump({})
 
 
 @pytest.mark.parametrize("contents", ["\ufeffSkovvej", "Skovvej"])
