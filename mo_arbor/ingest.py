@@ -49,20 +49,20 @@ TERMINATION_PRIORITY = 1000
 
 
 def priorities(
-    changes: Diff, units: dict[str, Unit], previous: dict[str, Unit]
+    changes: Diff, units: dict[str, Unit], depths_in_mo: dict[str, int]
 ) -> dict[str, int]:
     """The priority of each user_key's event.
 
     MO hands out the events with the lowest priority first. Parents come before
     their children, as MO rejects a unit whose parent does not exist. Removed
-    units come last, children first, as MO rejects terminating a unit with
-    active children.
+    units come last, children first by their depth in MO, as MO rejects
+    terminating a unit with active children.
     """
     by_user_key: dict[str, int] = {}
     for user_key in changes.added | changes.changed:
         by_user_key[user_key] = units[user_key].depth
     for user_key in changes.removed:
-        by_user_key[user_key] = TERMINATION_PRIORITY - previous[user_key].depth
+        by_user_key[user_key] = TERMINATION_PRIORITY - depths_in_mo[user_key]
     return by_user_key
 
 
@@ -137,7 +137,9 @@ async def ingest_code_system(
     # Events are sent before the dump is recorded, so if we crash in between,
     # the next ingest sends them again rather than losing them. An event sent
     # twice is harmless, as the handler reads the newest dump either way.
-    await send_events(mo, code_system, priorities(changes, dump.units, previous_units))
+    # MO reflects the previous dump
+    depths_in_mo = {k: unit.depth for k, unit in previous_units.items()}
+    await send_events(mo, code_system, priorities(changes, dump.units, depths_in_mo))
     async with sessionmaker() as session, session.begin():
         await session.execute(
             insert(LastIngested)
