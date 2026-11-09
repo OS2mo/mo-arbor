@@ -26,6 +26,14 @@ class DumpNotFound(Exception):
     pass
 
 
+class DumpFile(BaseModel, frozen=True):
+    """A dump in the file store, not loaded yet."""
+
+    file_name: str
+    # When MO last wrote it
+    updated_at: datetime
+
+
 class Dump(BaseModel, frozen=True):
     file_name: str
     date: date
@@ -61,7 +69,7 @@ class DumpStore:
         )
         self.rows_model = rows_model
         # Each event reads the newest dump, and ingest also the previous one.
-        # Errors are not cached, so a fixed dump uploaded again is read again.
+        # Errors are not cached, and an overwritten dump is read again.
         # Each code system has its own cache, which a decorator on the method
         # would share between them.
         self.load = alru_cache(maxsize=2)(self._load)
@@ -77,22 +85,32 @@ class DumpStore:
         except ValueError:
             return None
 
-    async def newest_file_name(self, mo: GraphQLClient) -> str:
-        """The file name of the newest dump in the file store.
+    async def list_dumps(self, mo: GraphQLClient) -> dict[str, DumpFile]:
+        """The code system's dumps in the file store, by name."""
+        files = await mo.list_files(FileStore.EXPORTS)
+        return {
+            file.file_name: DumpFile(
+                file_name=file.file_name, updated_at=file.updated_at
+            )
+            for file in files.objects
+            if self.dump_time(file.file_name) is not None
+        }
+
+    def newest_dump(self, dumps: dict[str, DumpFile]) -> DumpFile:
+        """The newest dump, by the time in its name.
 
         Raises:
             DumpNotFound: If there are no dumps.
         """
-        files = await mo.list_files(FileStore.EXPORTS)
-        dumps = []
-        for file in files.objects:
-            time = self.dump_time(file.file_name)
+        by_time = []
+        for file_name in dumps:
+            time = self.dump_time(file_name)
             if time is not None:
-                dumps.append((time, file.file_name))
-        if not dumps:
+                by_time.append((time, file_name))
+        if not by_time:
             raise DumpNotFound(f"no dumps of {self.code_system}")
-        _, file_name = max(dumps)
-        return file_name
+        _, file_name = max(by_time)
+        return dumps[file_name]
 
     async def load_newest(self, mo: GraphQLClient) -> Dump:
         """Load and parse the newest dump.
@@ -101,15 +119,16 @@ class DumpStore:
             DumpNotFound: If there are no dumps.
             InvalidFile: If the dump is not UTF-8, or fails validation.
         """
-        return await self.load(mo, await self.newest_file_name(mo))
+        return await self.load(mo, self.newest_dump(await self.list_dumps(mo)))
 
-    async def _load(self, mo: GraphQLClient, file_name: str) -> Dump:
+    async def _load(self, mo: GraphQLClient, dump_file: DumpFile) -> Dump:
         """Load and parse a dump.
 
         Raises:
             DumpNotFound: If there is no dump with this name.
             InvalidFile: If the dump is not UTF-8, or fails validation.
         """
+        file_name = dump_file.file_name
         # The dump's date is in its name
         time = self.dump_time(file_name)
         if time is None:

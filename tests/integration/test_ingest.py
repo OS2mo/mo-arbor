@@ -303,10 +303,7 @@ async def test_last_ingested_dump_not_found(
 
 @pytest.mark.integration_test
 async def test_invalid_last_ingested_dump(
-    app: FastAPI,
-    test_client: AsyncClient,
-    graphql_client: GraphQLClient,
-    upload_file: UploadFile,
+    test_client: AsyncClient, graphql_client: GraphQLClient, upload_file: UploadFile
 ) -> None:
     """The last ingested dump is overwritten with an invalid one.
 
@@ -318,9 +315,6 @@ async def test_invalid_last_ingested_dump(
     assert await consume_all_events(graphql_client, listener) == {ROOT, A, B}
 
     await upload_file(APRIL_30, "not a dump")
-    # The loaded dumps are cached, so clear the cache to read the overwritten
-    # dump, as after a restart
-    app.state.context["user_context"]["dump_stores"]["sor"].load.cache_clear()
     await upload_file(MAY_1, file(row(ROOT), row(A, parent=ROOT)))
 
     with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):

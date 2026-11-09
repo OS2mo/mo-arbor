@@ -93,20 +93,25 @@ async def ingest_code_system(
     force: bool,
 ) -> Ingested | None:
     log = logger.bind(code_system=code_system.name)
-    file_name = await store.newest_file_name(mo)
+    dumps = await store.list_dumps(mo)
+    newest = store.newest_dump(dumps)
+    file_name = newest.file_name
 
     async with sessionmaker() as session:
         last_ingested = await session.get(LastIngested, code_system.name)
     if last_ingested is not None and last_ingested.file_name == file_name:
         return None
 
-    dump = await store.load(mo, file_name)
+    dump = await store.load(mo, newest)
     # Without a last ingested dump, an event is sent for every unit in the
     # newest dump
     previous_units: dict[str, Unit] = {}
     if last_ingested is not None:
         # Without it, the units removed since cannot be found
-        previous = await store.load(mo, last_ingested.file_name)
+        previous_file = dumps.get(last_ingested.file_name)
+        if previous_file is None:
+            raise DumpNotFound(f"{last_ingested.file_name} is not in the file store")
+        previous = await store.load(mo, previous_file)
         previous_units = previous.units
 
     changes = diff(previous_units, dump.units)

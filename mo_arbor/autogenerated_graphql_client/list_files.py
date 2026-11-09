@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from .base_model import BaseModel
 
 
@@ -11,6 +13,7 @@ class ListFilesFiles(BaseModel):
 
 class ListFilesFilesObjects(BaseModel):
     file_name: str
+    updated_at: datetime
 
 
 ListFiles.update_forward_refs()
