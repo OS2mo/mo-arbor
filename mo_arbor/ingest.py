@@ -23,10 +23,12 @@ from mo_arbor.config import CodeSystemName
 from mo_arbor.database import LastIngested
 from mo_arbor.diff import Diff
 from mo_arbor.diff import diff
+from mo_arbor.diff import full_sync
 from mo_arbor.dumps import DumpNotFound
 from mo_arbor.dumps import DumpStore
 from mo_arbor.mo import ClassNotFound
 from mo_arbor.mo import create_root_unit
+from mo_arbor.mo import units_in_mo
 
 router = APIRouter()
 logger = structlog.stdlib.get_logger()
@@ -99,22 +101,26 @@ async def ingest_code_system(
 
     async with sessionmaker() as session:
         last_ingested = await session.get(LastIngested, code_system.name)
-    if last_ingested is not None and last_ingested.file_name == file_name:
+    # The last ingested dump, unless it is gone or was overwritten since
+    last_file = None
+    if last_ingested is not None:
+        last_file = dumps.get(last_ingested.file_name)
+        if last_file is not None and last_file.updated_at != last_ingested.updated_at:
+            last_file = None
+    if last_file == newest:
         return None
 
     dump = await store.load(mo, newest)
-    # Without a last ingested dump, an event is sent for every unit in the
-    # newest dump
-    previous_units: dict[str, Unit] = {}
-    if last_ingested is not None:
-        # Without it, the units removed since cannot be found
-        previous_file = dumps.get(last_ingested.file_name)
-        if previous_file is None:
-            raise DumpNotFound(f"{last_ingested.file_name} is not in the file store")
-        previous = await store.load(mo, previous_file)
-        previous_units = previous.units
-
-    changes = diff(previous_units, dump.units)
+    if last_file is not None:
+        # MO reflects the last ingested dump
+        previous = await store.load(mo, last_file)
+        changes = diff(previous.units, dump.units)
+        depths_in_mo = {k: unit.depth for k, unit in previous.units.items()}
+    else:
+        # What MO reflects is not known, so MO is synced with the whole dump
+        log.info("Syncing MO with the whole dump", file_name=file_name)
+        depths_in_mo = await units_in_mo(mo, code_system, dump)
+        changes = full_sync(dump.units, set(depths_in_mo))
     ingested = Ingested(file_name=file_name, changes=changes)
 
     if len(changes.removed) > max_terminations and not force:
@@ -137,16 +143,18 @@ async def ingest_code_system(
     # Events are sent before the dump is recorded, so if we crash in between,
     # the next ingest sends them again rather than losing them. An event sent
     # twice is harmless, as the handler reads the newest dump either way.
-    # MO reflects the previous dump
-    depths_in_mo = {k: unit.depth for k, unit in previous_units.items()}
     await send_events(mo, code_system, priorities(changes, dump.units, depths_in_mo))
     async with sessionmaker() as session, session.begin():
         await session.execute(
             insert(LastIngested)
-            .values(code_system=code_system.name, file_name=file_name)
+            .values(
+                code_system=code_system.name,
+                file_name=file_name,
+                updated_at=newest.updated_at,
+            )
             .on_conflict_do_update(
                 index_elements=[LastIngested.code_system],
-                set_={"file_name": file_name},
+                set_={"file_name": file_name, "updated_at": newest.updated_at},
             )
         )
     return ingested
@@ -169,14 +177,17 @@ async def ingest(
     ingested one. Dumps in between are skipped, as the event handler always
     reads the newest dump.
 
+    If the last ingested dump is not known, as there is none or it was
+    overwritten since, the newest dump is compared with MO's units instead.
+
     A code system without dumps is logged as an error, as the supplier may
     have named them wrong.
 
-    Nothing is ingested for a code system whose newest dump is invalid, whose
-    last ingested dump is gone or invalid, whose newest dump removes more
-    than `MAX_TERMINATIONS` units unless `force` is set, or whose root
-    unit's type is not a class in MO. These are logged as errors, and the
-    request fails after the other code systems are ingested.
+    Nothing is ingested for a code system whose newest dump is invalid, or
+    removes more than `MAX_TERMINATIONS` units unless `force` is set, or
+    whose root unit's type is not a class in MO.
+    These are logged as errors, and the request fails after the other code
+    systems are ingested.
 
     With `dry_run`, returns what would be ingested without sending events or
     recording anything.
