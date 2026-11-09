@@ -30,7 +30,7 @@ A = "100001000016006"
 B = "1000001000016004"
 C = "20011000016005"
 
-# File patterns of CODE_SYSTEMS in tests/conftest.py
+# Dumps of the code systems in tests/conftest.py
 MARCH_31 = "region_sor_20260331_120000.csv"
 APRIL_30 = "region_sor_20260430_120000.csv"
 MAY_1 = "region_sor_20260501_120000.csv"
@@ -111,8 +111,8 @@ async def test_no_dumps(
         await ingest_all(test_client)
     assert await consume_all_events(graphql_client, listener) == set()
     assert not_ingested(cap_logs) == [
-        "no dumps match region_sor_%Y%m%d_%H%M%S.csv",
-        "no dumps match region_okosted_%Y%m%d_%H%M%S.csv",
+        "no dumps of sor",
+        "no dumps of okosted",
     ]
 
 
@@ -327,11 +327,7 @@ async def test_invalid_last_ingested_dump(
     {
         "CODE_SYSTEMS": json.dumps(
             [
-                {
-                    "name": "sor",
-                    "file_pattern": "region_sor_%Y%m%d_%H%M%S.csv",
-                    "max_terminations": 1,
-                }
+                {"name": "sor", "max_terminations": 1},
             ]
         )
     }
