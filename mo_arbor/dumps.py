@@ -94,7 +94,7 @@ class DumpStore:
         _, file_name = max(dumps)
         return file_name
 
-    async def newest(self, mo: GraphQLClient) -> Dump:
+    async def load_newest(self, mo: GraphQLClient) -> Dump:
         """Load and parse the newest dump.
 
         Raises:
