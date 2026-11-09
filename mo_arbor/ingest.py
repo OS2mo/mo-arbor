@@ -159,8 +159,8 @@ async def ingest(
     newest dump of a code system is compared to its last ingested one. Dumps
     in between are skipped, as the event handler always reads the newest dump.
 
-    A code system without dumps is logged as an error, as its `file_pattern`
-    may be wrong.
+    A code system without dumps is logged as an error, as the supplier may
+    have named them wrong.
 
     Nothing is ingested for a code system whose newest dump is invalid, whose
     last ingested dump is gone or invalid, whose newest dump removes more

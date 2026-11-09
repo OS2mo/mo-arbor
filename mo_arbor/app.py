@@ -44,8 +44,7 @@ def create_app() -> FastAPI:
     fastramqpi.add_context(settings=settings)
     fastramqpi.add_context(
         dump_stores={
-            c.name: DumpStore(c.file_pattern, c.rows_model)
-            for c in settings.code_systems
+            c.name: DumpStore(c.name, c.rows_model) for c in settings.code_systems
         }
     )
 

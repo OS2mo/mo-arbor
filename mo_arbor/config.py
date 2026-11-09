@@ -11,7 +11,6 @@ from fastramqpi.config import Settings as FastRAMQPISettings
 from more_itertools import duplicates_everseen
 from pydantic import BaseModel
 from pydantic import BaseSettings
-from pydantic import Field
 from pydantic import validator
 
 from mo_arbor.code_system_file import Rows
@@ -39,14 +38,9 @@ class CodeSystem(BaseModel, frozen=True):
     """A code system, such as SOR, whose dumps become a tree of org units."""
 
     # Which code system it is. It is also the namespace of the code system's
-    # events in MO, and part of its units' UUIDs, so renaming a code system
-    # makes MO's existing units unreachable.
+    # events in MO, the end of its dumps' file names, and part of its units'
+    # UUIDs, so renaming a code system makes MO's existing units unreachable.
     name: CodeSystemName
-
-    # File names of the code system's dumps in MO's EXPORTS file store, with
-    # the time of the dump as `datetime.strptime` directives, e.g.
-    # customer_system_%Y%m%d_%H%M%S.csv.
-    file_pattern: str = Field(min_length=1)
 
     # Refuse to ingest a dump that removes more units than this, unless forced.
     # Protects against a truncated dump terminating half the tree.
@@ -106,7 +100,7 @@ class Settings(BaseSettings):
     fastramqpi: FastRAMQPISettings
 
     # The code systems, as a JSON list, e.g.
-    # CODE_SYSTEMS='[{"name": "sor", "file_pattern": "..."}]'.
+    # CODE_SYSTEMS='[{"name": "sor"}, {"name": "okosted"}]'.
     code_systems: list[CodeSystem]
 
     @validator("code_systems")
