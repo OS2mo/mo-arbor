@@ -36,7 +36,7 @@ input AccessLogFilter {
   "Filter access log events by their reading actor.\n\nCan be used to select all data read by a particular user or integration.\n\n| `actors`      | Elements returned                            |\n|--------------|----------------------------------------------|\n| not provided | All                                          |\n| `null`       | All                                          |\n| `[]`         | None                                         |\n| `\"x\"`        | `[\"x\"]` or `[]` (`*`)                        |\n| `[\"x\", \"y\"]` | `[\"x\", \"y\"]`, `[\"x\"]`, `[\"y\"]` or `[]` (`*`) |\n\n`*`: Elements returned depends on which elements were found.\n"
   actors: [UUID!] = null
 
-  "Filter access log events by their model type.\n\nCan be used to select all reads for a data type.\n\nCan be one of:\n* `\"AccessLog\"`\n* `\"Actor\"`\n* `\"Bruger\"`\n* `\"Facet\"`\n* `\"ItSystem\"`\n* `\"Klasse\"`\n* `\"Organisation\"`\n* `\"OrganisationEnhed\"`\n* `\"OrganisationFunktion\"`\n\n| `models`      | Elements returned                            |\n|--------------|----------------------------------------------|\n| not provided | All                                          |\n| `null`       | All                                          |\n| `[]`         | None                                         |\n| `\"x\"`        | `[\"x\"]` or `[]` (`*`)                        |\n| `[\"x\", \"y\"]` | `[\"x\", \"y\"]`, `[\"x\"]`, `[\"y\"]` or `[]` (`*`) |\n\n`*`: Elements returned depends on which elements were found.\n"
+  "Filter access log events by their model type.\n\nCan be used to select all reads for a data type.\n\nCan be one of:\n* `ACCESS_LOG`\n* `ACTOR`\n* `PERSON`\n* `FACET`\n* `IT_SYSTEM`\n* `CLASS`\n* `ORGANISATION`\n* `ORGANISATION_UNIT`\n* `ORGANISATION_FUNCTION`\n\n| `models`      | Elements returned                            |\n|--------------|----------------------------------------------|\n| not provided | All                                          |\n| `null`       | All                                          |\n| `[]`         | None                                         |\n| `\"x\"`        | `[\"x\"]` or `[]` (`*`)                        |\n| `[\"x\", \"y\"]` | `[\"x\", \"y\"]`, `[\"x\"]`, `[\"y\"]` or `[]` (`*`) |\n\n`*`: Elements returned depends on which elements were found.\n"
   models: [AccessLogModel!] = null
 
   """Limit the elements returned by their starting validity."""
@@ -918,6 +918,21 @@ scalar CEL
 "Scalar implementing the danish national identification number / civil registration number.\n\nThe number is a unique identifier for a single individual, although individuals may go through several numbers over time.\n\nThe number is expected to have 10 digits, 6 digits defining a date, and a 4 digit serial number.\nThe number does not have to fulfill the modulo 11 checksum.\nIt does however (optionally) have to define a valid date.\nNo dash should be included to separate the date and serial number sections.\n\nFor further details refer to the Central Person Register (CPR) at:\n* https://cpr.dk/\n\nOr \"Bekendtgørelse af lov om Det Centrale Personregister\" (\"CPR-Loven\"):\n* https://www.retsinformation.dk/eli/lta/2017/646\n\nExamples:\n* `\"0106875049\"`\n* `\"0106878994\"`\n* `\"406568970\"`\n"
 scalar CPR
 
+"""CPR filter."""
+input CPRFilter {
+  """The CPR number to look up."""
+  cpr_number: String!
+}
+
+"""Person found by CPR lookup."""
+type CPRPerson {
+  "Name of the person.\n\nExample: \"John Doe\"\n"
+  name: String!
+
+  "CPR number of the person.\n\nExample: \"6101501234\"\n"
+  cpr_number: String!
+}
+
 "\nA value in the facet sample space.\n\nClasses can also be thought of as the value component of the facet/class key-value setup.\n"
 type Class {
   "\nParent class.\n\nAlmost always `null` as class hierarchies are rare.\nCurrently mostly used to describe (trade) union hierachies.\n\nThe inverse operation of `children`.\n"
@@ -1346,22 +1361,29 @@ input ClassUpdateInput {
 
 """A collection a read rule may grant access to."""
 enum Collection {
+  AccessLog
   Address
   Association
   Class
   Employee
   Engagement
   Facet
+  File
+  FullEvent
   ITSystem
   ITUser
   KLE
   Leave
+  Listener
   Manager
+  Namespace
   Organisation
   OrganisationUnit
   Owner
   RelatedUnit
   RoleBinding
+  RolebindingRule
+  RolebindingRuleRevision
 }
 
 "Scalar implementing the cursor of cursor-based pagination.\n\nThe cursor is opaque by design abstracting away the underlying implementation details.\n\nExamples:\n* `\"Njk=\"`\n* `\"NDIw\"`\n* `\"MTMzNw==\"`\n\nNote:\n\nAs the cursor is to be considered opaque its implementation may change in the future.\nI.e. in the future it may be implemented as a simple integer or a complex object.\n\nThe caller should not concern themselves with the actual value contained within, but rather simply pass whatever is returned in the `cursor` argument to continue iteration.\n"
@@ -1742,6 +1764,9 @@ input EmployeeBoundEngagementFilter {
   "Engagement type filter limiting which entries are returned.\n"
   engagement_type: ClassFilter = null
 
+  "Explicit manager filter limiting which entries are returned.\n\n* Omitted (`UNSET`): no filtering on explicit manager.\n* `null`: only engagements without an explicit manager.\n* A `ManagerFilter`: only engagements whose explicit manager\n  matches the nested filter.\n"
+  explicit_manager: ManagerFilter
+
   """ITUser filter limiting which entries are returned."""
   ituser: ITUserFilter = null
 
@@ -1922,6 +1947,12 @@ input EmployeeFilter {
 
   "IT-user filter limiting which entries are returned.\n\nSet to `null` to only return employees without any IT-users.\n"
   ituser: ITUserFilter
+
+  "Manager role filter limiting which entries are returned.\n\nReturns the employees holding the matching managerial roles, i.e.\nthe managers themselves, not the employees they manage.\n\nSet to `null` to only return employees without any managerial roles.\n"
+  manager_role: ManagerFilter
+
+  "Engagement filter limiting which entries are returned.\n\nSet to `null` to only return employees without any engagements.\n"
+  engagement: EngagementFilter
 }
 
 """Employee registration filter."""
@@ -2179,6 +2210,11 @@ type Engagement {
     cursor: Cursor = null
   ): [ITUserResponse!]! @deprecated(reason: "Use 'itusers_response' instead. Will be removed in a future version of OS2mo.")
 
+  """
+  This field can be used to point the engagement to a specific manager anywhere in the organisation. Note that this field is independent of the 'managers' field.
+  """
+  explicit_manager: ManagerResponse
+
   """UUID of the entity"""
   uuid: UUID!
 
@@ -2402,6 +2438,9 @@ input EngagementCreateInput {
   "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
   extension_10: String = null
 
+  """UUID of the explicit manager related to the engagement."""
+  explicit_manager: UUID = null
+
   """UUID of the related employee."""
   employee: UUID = null @deprecated(reason: "Use 'person' instead. Will be removed in a future version of OS2mo.")
 
@@ -2451,6 +2490,9 @@ input EngagementFilter {
 
   "Engagement type filter limiting which entries are returned.\n"
   engagement_type: ClassFilter = null
+
+  "Explicit manager filter limiting which entries are returned.\n\n* Omitted (`UNSET`): no filtering on explicit manager.\n* `null`: only engagements without an explicit manager.\n* A `ManagerFilter`: only engagements whose explicit manager\n  matches the nested filter.\n"
+  explicit_manager: ManagerFilter
 
   """ITUser filter limiting which entries are returned."""
   ituser: ITUserFilter = null
@@ -2583,65 +2625,27 @@ input EngagementTerminateInput {
 }
 
 input EngagementUpdateInput {
-  """UUID of the Engagement you want to update."""
   uuid: UUID!
-
-  """Name or UUID of the related engagement."""
-  user_key: String = null
-
-  """Primary field of the engagement"""
-  primary: UUID = null
-
-  """Validity of the engagement object."""
   validity: RAValidityInput!
-
-  """Worktime between 0-1000000 for the engagement object."""
-  fraction: Int = null
-
-  "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
+  user_key: String = null
+  primary: UUID = null
+  fraction: Int
   extension_1: String = null
-
-  "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
   extension_2: String = null
-
-  "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
   extension_3: String = null
-
-  "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
   extension_4: String = null
-
-  "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
   extension_5: String = null
-
-  "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
   extension_6: String = null
-
-  "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
   extension_7: String = null
-
-  "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
   extension_8: String = null
-
-  "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
   extension_9: String = null
-
-  "Arbitrary value extension fields.\n\nA collection of field for storing arbitrary extra data.\nCan be used for extraordinary occasions when no standardized field to model the data exists.\n\n"
   extension_10: String = null
-
-  """UUID of the related employee."""
   employee: UUID = null @deprecated(reason: "Use 'person' instead. Will be removed in a future version of OS2mo.")
-
-  """UUID of the related employee."""
   person: UUID = null
-
-  """The related org-unit object."""
   org_unit: UUID = null
-
-  """UUID of the engagement type."""
   engagement_type: UUID = null
-
-  """UUID of the job function."""
   job_function: UUID = null
+  explicit_manager: UUID
 }
 
 "Event.\n\nYou need to use the `token` to acknowledge that the event has been handled properly by calling `event_acknowledge`.\n\nYour integration is supposed to handle *all* events that the listener subscribes to. If your integration does not need to do anything for a particular event, it still needs to be acknowledged.\n\nYou might see events in the `events` collection that you do not appear to receive when calling `event_fetch`. This is because OS2mo will not spam you with the same event over and over if it fails.\n"
@@ -3033,6 +3037,12 @@ type File {
 
   "\nName of the file.\n\nExamples:\n* `\"report.odt\"`\n* `\"result.csv\"`\n"
   file_name: String!
+
+  """When the file was first uploaded."""
+  created_at: DateTime!
+
+  "\nWhen the file was last written.\n\nThis is when the file was first uploaded, or last overwritten with `force`.\n"
+  updated_at: DateTime!
 
   "\nThe textual contents of the file.\n\nExamples:\n* A csv-file:\n```\nYear,Model,Make\n1997,Ford,E350\n2000,Mercury,Cougar\n...\n```\n* A textual report:\n```\nStatus of this Memo\n\nThis document specifies an Internet standards track\n...\n```\n\nNote:\nThis should only be used for text files formats such as `.txt` or `.csv`.\nFor binary formats please use `base64_contents` instead.\n"
   text_contents: String!
@@ -5015,7 +5025,7 @@ input ManagerUpdateInput {
   uuid: UUID!
   validity: RAValidityInput!
   user_key: String = null
-  person: UUID
+  person: UUID = null
   engagement: UUID
   responsibility: [UUID!] = null
   org_unit: UUID = null
@@ -5514,6 +5524,15 @@ type Mutation {
     priority: Int! = 10000
   ): UUIDPaged!
 
+  """Create a rolebinding rule"""
+  rolebinding_rule_create(input: RolebindingRuleCreateInput!): RolebindingRule!
+
+  "Update a rolebinding rule.\n\nRolebinding rules are not bitemporal.\n"
+  rolebinding_rule_update(input: RolebindingRuleUpdateInput!): RolebindingRule!
+
+  """Delete a rolebinding rule."""
+  rolebinding_rule_delete(input: RolebindingRuleDeleteInput!): UUID!
+
   "Create a namespace.\n\nThis operation is idempotent, so it can be called upon application startup.\n\nNamespaces are used to create your own event systems.\n"
   event_namespace_declare(input: NamespaceCreateInput!): Namespace!
 
@@ -5646,6 +5665,9 @@ enum Mutator {
   rolebinding_terminate
   rolebinding_delete
   rolebinding_refresh
+  rolebinding_rule_create
+  rolebinding_rule_update
+  rolebinding_rule_delete
   event_namespace_declare
   event_namespace_delete
   event_listener_declare
@@ -5871,6 +5893,9 @@ input OrgUnitboundengagementfilter {
 
   "Engagement type filter limiting which entries are returned.\n"
   engagement_type: ClassFilter = null
+
+  "Explicit manager filter limiting which entries are returned.\n\n* Omitted (`UNSET`): no filtering on explicit manager.\n* `null`: only engagements without an explicit manager.\n* A `ManagerFilter`: only engagements whose explicit manager\n  matches the nested filter.\n"
+  explicit_manager: ManagerFilter
 
   """ITUser filter limiting which entries are returned."""
   ituser: ITUserFilter = null
@@ -7396,6 +7421,17 @@ type Query {
     cursor: Cursor = null
   ): RoleBindingResponsePaged!
 
+  "Get rolebinding rules.\n\nA rolebinding rule grants a role to every IT-user matching a CEL\nexpression.\n"
+  rolebinding_rules(
+    filter: RolebindingRuleFilter = null
+
+    "\nLimit the maximum number of elements to fetch.\n\n| `limit`      | \\# elements fetched |\n|--------------|---------------------|\n| not provided | All                 |\n| `null`       | All                 |\n| `0`          | `0` (`*`)           |\n| `x`          | Between `0` and `x` |\n\n`*`: This behavior is equivalent to SQL's `LIMIT 0` behavior.\n\nNote:\n\nSometimes the caller may receieve a shorter list (or even an empty list) of results compared to the expected per the limit argument.\n\nThis may seem confusing, but it is the expected behavior given the way that limiting is implemented in the bitemporal database layer, combined with how filtering and object change consolidation is handled.\n\nNot to worry; all the expected elements will eventually be returned, as long as the iteration is continued until the `next_cursor` is `null`.\n"
+    limit: int = null
+
+    "Cursor defining the next elements to fetch.\n\n| `cursor`       | Next element is    |\n|----------------|--------------------|\n| not provided   | First              |\n| `null`         | First              |\n| `\"MA==\"` (`*`) | First after Cursor |\n\n`*`: Placeholder for the cursor returned by the previous iteration.\n"
+    cursor: Cursor = null
+  ): RolebindingRulePaged!
+
   """Query healthcheck status."""
   healths(
     filter: HealthFilter = null
@@ -7500,6 +7536,9 @@ type Query {
 
   "Get information about the API client itself (i.e. the current caller).\n\nThis collection allows clients to query information about themselves, such\nas their configured actor UUID, RBAC roles, login / contact email address,\ncreated event namespaces and listeners, etc.\n"
   me: Myself!
+
+  "Look up a person by their CPR number.\n\nThis performs a lookup in Serviceplatformen, which must be\nconfigured (`ENABLE_SP=true`), otherwise an error is raised.\n\nLooking up \"erstatningspersonnummer\" CPR numbers (fictitious CPR numbers\nwhere the 'day' part of the birthdate is in the range 61-91) requires\nthat CPR birthdate validation is disabled (`CPR_VALIDATE_BIRTHDATE=false`),\notherwise such CPR numbers are rejected as invalid.\n"
+  cpr(filter: CPRFilter!): CPRPerson!
 
   "Get the root organisation.\n\nThis endpoint fails if not exactly one exists in LoRa.\n"
   org: Organisation! @deprecated(reason: "The root organisation concept will be removed in a future version of OS2mo.")
@@ -8001,6 +8040,105 @@ input RoleRegistrationFilter {
   end: DateTime = null
 }
 
+"A rule granting a rolebinding to every IT-user matching a CEL expression.\n\nThe rolebinding engine reconciles the rolebindings asynchronously, so\nthey do not exist yet when a mutation returns.\n"
+type RolebindingRule {
+  """ID of the rule."""
+  uuid: UUID!
+
+  """When the rule was created."""
+  created_at: DateTime!
+
+  """The current revision of the rule."""
+  current: RolebindingRuleRevision!
+}
+
+"""A CEL expression used in rolebinding rules."""
+scalar RolebindingRuleCEL
+
+"""Create a rolebinding rule."""
+input RolebindingRuleCreateInput {
+  """Human-readable name of the rule."""
+  name: String!
+
+  """UUID of the role to grant."""
+  role: UUID!
+
+  "A Common Expression Language (CEL) expression that decides which IT-users\nget the rule's role. The expression must evaluate to `true` or `false`.\n\nFor the full language, see https://cel.dev.\n\nCEL has no UUID type. Write UUIDs as lowercase strings in double quotes.\n\nThe following fields are available in the environment that expressions are\nevaluated:\n\n| Field                 | Type               | Holds                                                     |\n|-----------------------|--------------------|-----------------------------------------------------------|\n| `ituser.uuid`         | `string`           | UUID of the IT-user.                                      |\n| `ituser.user_key`     | `string`           | User key of the IT-user, e.g. the username.               |\n| `ituser.external_id`  | `string`           | ID of the IT-user in the external IT-system.              |\n| `ituser.engagements`  | `list(Engagement)` | The engagements linked to the IT-user. Empty if none are linked. |\n\nEach engagement has the following fields:\n\n| Field                  | Type           | Holds                                                     |\n|------------------------|----------------|-----------------------------------------------------------|\n| `uuid`                 | `string`       | UUID of the engagement.                                   |\n| `job_function.uuid`    | `string`       | UUID of the engagement's job function.                    |\n| `engagement_type.uuid` | `string`       | UUID of the engagement's engagement type.                 |\n| `org_unit.uuid`        | `string`       | UUID of the engagement's organisation unit.               |\n| `org_unit.path_uuids`  | `list(string)` | UUIDs of the engagement's organisation unit and of every unit above it. |\n\nUse `exists` to match IT-users with at least one engagement fulfilling a\ncondition, e.g. `ituser.engagements.exists(e, e.job_function.uuid == \"...\")`.\nUse `all` to require it of every engagement. `exists` is `false` and `all`\nis `true` for an IT-user without engagements. To match IT-users without\nengagements, write `size(ituser.engagements) == 0`.\n\nConditions within one `exists` must hold for the same engagement. Conditions\nin separate `exists` may hold for different engagements.\n\nTo match an organisation unit and every unit below it, use the `in`\noperator on `path_uuids`, e.g.\n`ituser.engagements.exists(e, \"...\" in e.org_unit.path_uuids)`. To match\nonly the unit itself, compare the unit's UUID with `org_unit.uuid`.\n"
+  expression: RolebindingRuleCEL!
+
+  """Whether the engine should act on this rule."""
+  active: Boolean! = true
+}
+
+"""Delete a rolebinding rule."""
+input RolebindingRuleDeleteInput {
+  """UUID of the rule to delete."""
+  uuid: UUID!
+}
+
+"""Rolebinding rule filter."""
+input RolebindingRuleFilter {
+  "UUID filter limiting which entries are returned.\n\n| `uuids`      | Elements returned                            |\n|--------------|----------------------------------------------|\n| not provided | All                                          |\n| `null`       | All                                          |\n| `[]`         | None                                         |\n| `\"x\"`        | `[\"x\"]` or `[]` (`*`)                        |\n| `[\"x\", \"y\"]` | `[\"x\", \"y\"]`, `[\"x\"]`, `[\"y\"]` or `[]` (`*`) |\n\n`*`: Elements returned depends on which elements were found.\n"
+  uuids: [UUID!] = null
+
+  "Name filter limiting which entries are returned.\n\n| `names`      | Elements returned                            |\n|--------------|----------------------------------------------|\n| not provided | All                                          |\n| `null`       | All                                          |\n| `[]`         | None                                         |\n| `\"x\"`        | `[\"x\"]` or `[]` (`*`)                        |\n| `[\"x\", \"y\"]` | `[\"x\", \"y\"]`, `[\"x\"]`, `[\"y\"]` or `[]` (`*`) |\n\n`*`: Elements returned depends on which elements were found.\n"
+  names: [String!] = null
+
+  "Role UUID filter limiting which entries are returned.\n\n| `roles`      | Elements returned                            |\n|--------------|----------------------------------------------|\n| not provided | All                                          |\n| `null`       | All                                          |\n| `[]`         | None                                         |\n| `\"x\"`        | `[\"x\"]` or `[]` (`*`)                        |\n| `[\"x\", \"y\"]` | `[\"x\", \"y\"]`, `[\"x\"]`, `[\"y\"]` or `[]` (`*`) |\n\n`*`: Elements returned depends on which elements were found.\n"
+  roles: [UUID!] = null
+
+  """Only return rules with this activation status."""
+  active: Boolean = null
+}
+
+"""Result page in cursor-based pagination."""
+type RolebindingRulePaged {
+  "List of results.\n\nThe number of elements is defined by the `limit` argument.\n"
+  objects: [RolebindingRule!]!
+
+  "Container for page information.\n\nContains the cursors necessary to fetch other pages.\nContains information on when to stop iteration.\n"
+  page_info: PageInfo!
+}
+
+"""One version of a rolebinding rule."""
+type RolebindingRuleRevision {
+  """When the revision was written."""
+  created_at: DateTime!
+
+  """Human-readable name of the rule."""
+  name: String!
+
+  "A Common Expression Language (CEL) expression that decides which IT-users\nget the rule's role. The expression must evaluate to `true` or `false`.\n\nFor the full language, see https://cel.dev.\n\nCEL has no UUID type. Write UUIDs as lowercase strings in double quotes.\n\nThe following fields are available in the environment that expressions are\nevaluated:\n\n| Field                 | Type               | Holds                                                     |\n|-----------------------|--------------------|-----------------------------------------------------------|\n| `ituser.uuid`         | `string`           | UUID of the IT-user.                                      |\n| `ituser.user_key`     | `string`           | User key of the IT-user, e.g. the username.               |\n| `ituser.external_id`  | `string`           | ID of the IT-user in the external IT-system.              |\n| `ituser.engagements`  | `list(Engagement)` | The engagements linked to the IT-user. Empty if none are linked. |\n\nEach engagement has the following fields:\n\n| Field                  | Type           | Holds                                                     |\n|------------------------|----------------|-----------------------------------------------------------|\n| `uuid`                 | `string`       | UUID of the engagement.                                   |\n| `job_function.uuid`    | `string`       | UUID of the engagement's job function.                    |\n| `engagement_type.uuid` | `string`       | UUID of the engagement's engagement type.                 |\n| `org_unit.uuid`        | `string`       | UUID of the engagement's organisation unit.               |\n| `org_unit.path_uuids`  | `list(string)` | UUIDs of the engagement's organisation unit and of every unit above it. |\n\nUse `exists` to match IT-users with at least one engagement fulfilling a\ncondition, e.g. `ituser.engagements.exists(e, e.job_function.uuid == \"...\")`.\nUse `all` to require it of every engagement. `exists` is `false` and `all`\nis `true` for an IT-user without engagements. To match IT-users without\nengagements, write `size(ituser.engagements) == 0`.\n\nConditions within one `exists` must hold for the same engagement. Conditions\nin separate `exists` may hold for different engagements.\n\nTo match an organisation unit and every unit below it, use the `in`\noperator on `path_uuids`, e.g.\n`ituser.engagements.exists(e, \"...\" in e.org_unit.path_uuids)`. To match\nonly the unit itself, compare the unit's UUID with `org_unit.uuid`.\n"
+  expression: RolebindingRuleCEL!
+
+  """Whether the engine should act on this rule."""
+  active: Boolean!
+
+  """The role granted by the rule."""
+  role: ClassResponse!
+
+  """The integration or user who wrote the revision."""
+  actor: Actor!
+}
+
+"""Update a rolebinding rule."""
+input RolebindingRuleUpdateInput {
+  """UUID of the rule to update."""
+  uuid: UUID!
+
+  """Human-readable name of the rule."""
+  name: String
+
+  """UUID of the role to grant."""
+  role: UUID
+
+  "A Common Expression Language (CEL) expression that decides which IT-users\nget the rule's role. The expression must evaluate to `true` or `false`.\n\nFor the full language, see https://cel.dev.\n\nCEL has no UUID type. Write UUIDs as lowercase strings in double quotes.\n\nThe following fields are available in the environment that expressions are\nevaluated:\n\n| Field                 | Type               | Holds                                                     |\n|-----------------------|--------------------|-----------------------------------------------------------|\n| `ituser.uuid`         | `string`           | UUID of the IT-user.                                      |\n| `ituser.user_key`     | `string`           | User key of the IT-user, e.g. the username.               |\n| `ituser.external_id`  | `string`           | ID of the IT-user in the external IT-system.              |\n| `ituser.engagements`  | `list(Engagement)` | The engagements linked to the IT-user. Empty if none are linked. |\n\nEach engagement has the following fields:\n\n| Field                  | Type           | Holds                                                     |\n|------------------------|----------------|-----------------------------------------------------------|\n| `uuid`                 | `string`       | UUID of the engagement.                                   |\n| `job_function.uuid`    | `string`       | UUID of the engagement's job function.                    |\n| `engagement_type.uuid` | `string`       | UUID of the engagement's engagement type.                 |\n| `org_unit.uuid`        | `string`       | UUID of the engagement's organisation unit.               |\n| `org_unit.path_uuids`  | `list(string)` | UUIDs of the engagement's organisation unit and of every unit above it. |\n\nUse `exists` to match IT-users with at least one engagement fulfilling a\ncondition, e.g. `ituser.engagements.exists(e, e.job_function.uuid == \"...\")`.\nUse `all` to require it of every engagement. `exists` is `false` and `all`\nis `true` for an IT-user without engagements. To match IT-users without\nengagements, write `size(ituser.engagements) == 0`.\n\nConditions within one `exists` must hold for the same engagement. Conditions\nin separate `exists` may hold for different engagements.\n\nTo match an organisation unit and every unit below it, use the `in`\noperator on `path_uuids`, e.g.\n`ituser.engagements.exists(e, \"...\" in e.org_unit.path_uuids)`. To match\nonly the unit itself, compare the unit's UUID with `org_unit.uuid`.\n"
+  expression: RolebindingRuleCEL
+
+  """Whether the engine should act on this rule."""
+  active: Boolean
+}
+
 "The SpecialActor type is used for special magic-number UUIDs.\n\nIt is returned, if a change was made;\n* While auth was disabled.\n* Using the legacy auth system.\n* Before registrations got actors registered.\nor similar\n"
 type SpecialActor implements Actor {
   """UUID of the actor"""
@@ -8157,6 +8295,12 @@ input UuidsBoundEmployeeFilter {
 
   "IT-user filter limiting which entries are returned.\n\nSet to `null` to only return employees without any IT-users.\n"
   ituser: ITUserFilter
+
+  "Manager role filter limiting which entries are returned.\n\nReturns the employees holding the matching managerial roles, i.e.\nthe managers themselves, not the employees they manage.\n\nSet to `null` to only return employees without any managerial roles.\n"
+  manager_role: ManagerFilter
+
+  "Engagement filter limiting which entries are returned.\n\nSet to `null` to only return employees without any engagements.\n"
+  engagement: EngagementFilter
 }
 
 input UuidsBoundEngagementFilter {
@@ -8192,6 +8336,9 @@ input UuidsBoundEngagementFilter {
 
   "Engagement type filter limiting which entries are returned.\n"
   engagement_type: ClassFilter = null
+
+  "Explicit manager filter limiting which entries are returned.\n\n* Omitted (`UNSET`): no filtering on explicit manager.\n* `null`: only engagements without an explicit manager.\n* A `ManagerFilter`: only engagements whose explicit manager\n  matches the nested filter.\n"
+  explicit_manager: ManagerFilter
 
   """ITUser filter limiting which entries are returned."""
   ituser: ITUserFilter = null

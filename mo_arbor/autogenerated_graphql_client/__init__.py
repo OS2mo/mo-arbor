@@ -69,6 +69,7 @@ from .input_types import ClassOwnerFilter
 from .input_types import ClassRegistrationFilter
 from .input_types import ClassTerminateInput
 from .input_types import ClassUpdateInput
+from .input_types import CPRFilter
 from .input_types import DescendantParentBoundOrganisationUnitFilter
 from .input_types import EmployeeBoundAddressFilter
 from .input_types import EmployeeBoundAssociationFilter
@@ -180,6 +181,10 @@ from .input_types import RelatedUnitFilter
 from .input_types import RelatedUnitsUpdateInput
 from .input_types import RoleBindingCreateInput
 from .input_types import RoleBindingFilter
+from .input_types import RolebindingRuleCreateInput
+from .input_types import RolebindingRuleDeleteInput
+from .input_types import RolebindingRuleFilter
+from .input_types import RolebindingRuleUpdateInput
 from .input_types import RoleBindingTerminateInput
 from .input_types import RoleBindingUpdateInput
 from .input_types import RoleRegistrationFilter
@@ -220,6 +225,7 @@ __all__ = [
     "AssociationUpdateInput",
     "AsyncBaseClient",
     "BaseModel",
+    "CPRFilter",
     "ClassCreateInput",
     "ClassFilter",
     "ClassOwnerFilter",
@@ -373,6 +379,10 @@ __all__ = [
     "RoleBindingTerminateInput",
     "RoleBindingUpdateInput",
     "RoleRegistrationFilter",
+    "RolebindingRuleCreateInput",
+    "RolebindingRuleDeleteInput",
+    "RolebindingRuleFilter",
+    "RolebindingRuleUpdateInput",
     "SendEvent",
     "TerminateOrgUnit",
     "TerminateOrgUnitOrgUnitTerminate",
