@@ -14,22 +14,29 @@ class AccessLogModel(str, Enum):
 
 
 class Collection(str, Enum):
+    AccessLog = "AccessLog"
     Address = "Address"
     Association = "Association"
     Class = "Class"
     Employee = "Employee"
     Engagement = "Engagement"
     Facet = "Facet"
+    File = "File"
+    FullEvent = "FullEvent"
     ITSystem = "ITSystem"
     ITUser = "ITUser"
     KLE = "KLE"
     Leave = "Leave"
+    Listener = "Listener"
     Manager = "Manager"
+    Namespace = "Namespace"
     Organisation = "Organisation"
     OrganisationUnit = "OrganisationUnit"
     Owner = "Owner"
     RelatedUnit = "RelatedUnit"
     RoleBinding = "RoleBinding"
+    RolebindingRule = "RolebindingRule"
+    RolebindingRuleRevision = "RolebindingRuleRevision"
 
 
 class FileStore(str, Enum):
@@ -143,6 +150,9 @@ class Mutator(str, Enum):
     rolebinding_terminate = "rolebinding_terminate"
     rolebinding_delete = "rolebinding_delete"
     rolebinding_refresh = "rolebinding_refresh"
+    rolebinding_rule_create = "rolebinding_rule_create"
+    rolebinding_rule_update = "rolebinding_rule_update"
+    rolebinding_rule_delete = "rolebinding_rule_delete"
     event_namespace_declare = "event_namespace_declare"
     event_namespace_delete = "event_namespace_delete"
     event_listener_declare = "event_listener_declare"
