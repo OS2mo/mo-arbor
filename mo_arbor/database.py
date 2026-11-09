@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
+from datetime import datetime
+
+from sqlalchemy import DateTime
 from sqlalchemy import Text
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
@@ -20,3 +23,5 @@ class LastIngested(Base):
 
     code_system: Mapped[str] = mapped_column(Text, primary_key=True)
     file_name: Mapped[str] = mapped_column(Text)
+    # When MO last wrote the dump
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
