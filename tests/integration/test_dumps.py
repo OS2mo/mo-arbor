@@ -58,11 +58,13 @@ async def test_load(graphql_client: GraphQLClient, upload_file: UploadFile) -> N
 
 
 @pytest.mark.integration_test
-async def test_newest(graphql_client: GraphQLClient, upload_file: UploadFile) -> None:
+async def test_load_newest(
+    graphql_client: GraphQLClient, upload_file: UploadFile
+) -> None:
     await upload_file(MAY_1_MORNING, VALID_WITH_CHILD)
     await upload_file(APRIL_30, VALID)
 
-    dump = await DumpStore("sor").newest(graphql_client)
+    dump = await DumpStore("sor").load_newest(graphql_client)
 
     assert dump.file_name == MAY_1_MORNING
     assert dump.units.keys() == {"R", "C"}
