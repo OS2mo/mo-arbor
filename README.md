@@ -23,8 +23,9 @@ A code system, such as SOR, is a tree of codes, and each code becomes an org
 unit in MO. Code systems are configured in `CODE_SYSTEMS` as a JSON list, and
 `name` is one the integration knows: `sor` or `okosted`.
 
-The supplier uploads dumps to MO's `EXPORTS` file store, with the time of the
-dump in the file name (`file_pattern`). A new dump needs a new time in its
+The supplier uploads dumps to MO's `EXPORTS` file store. A dump's file name
+ends in the code system's name and the time of the dump, after any prefix,
+e.g. `customer_sor_20261016_094303.csv`. A new dump needs a new time in its
 name, as a dump uploaded again under the same name is not read again, unless
 it was invalid. A dump is a CSV file as described in the supplier's spec
 "Kodesystemfiler til OS2mo"
