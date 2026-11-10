@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
+import json
 from typing import cast
 from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
+from pytest import MonkeyPatch
 
 from mo_arbor.code_system_file import Rows
 from mo_arbor.config import CodeSystem
@@ -45,13 +47,18 @@ def test_rows_model_of_unvalidated_name() -> None:
         code_system.rows_model  # noqa: B018
 
 
-def test_code_system_names_are_unique() -> None:
-    """The name is the code system's event namespace."""
-    sor = CodeSystem(name="sor")
-    okosted = CodeSystem(name="okosted")
+@pytest.mark.usefixtures("minimal_valid_environmental_variables")
+def test_code_systems(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("CODE_SYSTEMS", json.dumps(["sor", "okosted"]))
+    assert Settings().code_systems == {"sor", "okosted"}
+
+
+@pytest.mark.usefixtures("minimal_valid_environmental_variables")
+def test_unknown_code_system_name(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("CODE_SYSTEMS", json.dumps(["sr"]))
     with pytest.raises(ValidationError) as exc_info:
-        Settings(code_systems=[sor, okosted, sor])
-    assert "duplicate code systems: sor" in str(exc_info.value)
+        Settings()
+    assert [e["loc"] for e in exc_info.value.errors()] == [("code_systems", 0)]
 
 
 def test_uuids_do_not_change() -> None:

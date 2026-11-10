@@ -8,10 +8,8 @@ from uuid import UUID
 from uuid import uuid5
 
 from fastramqpi.config import Settings as FastRAMQPISettings
-from more_itertools import duplicates_everseen
 from pydantic import BaseModel
 from pydantic import BaseSettings
-from pydantic import validator
 
 from mo_arbor.code_system_file import Rows
 from mo_arbor.code_system_file import Unit
@@ -37,10 +35,6 @@ class CodeSystem(BaseModel, frozen=True):
     # events in MO, the end of its dumps' file names, and part of its units'
     # UUIDs, so renaming a code system makes MO's existing units unreachable.
     name: CodeSystemName
-
-    # Refuse to ingest a dump that removes more units than this, unless forced.
-    # Protects against a truncated dump terminating half the tree.
-    max_terminations: int = 10
 
     @property
     def rows_model(self) -> type[Rows]:
@@ -94,20 +88,10 @@ class Settings(BaseSettings):
 
     fastramqpi: FastRAMQPISettings
 
-    # The code systems, as a JSON list, e.g.
-    # CODE_SYSTEMS='[{"name": "sor"}, {"name": "okosted"}]'.
-    code_systems: list[CodeSystem]
+    # The code systems to ingest, as a JSON list of names, e.g.
+    # CODE_SYSTEMS='["sor", "okosted"]'.
+    code_systems: set[CodeSystemName]
 
-    @validator("code_systems")
-    def unique_names(cls, v: list[CodeSystem]) -> list[CodeSystem]:
-        duplicates = set(duplicates_everseen(c.name for c in v))
-        if duplicates:
-            raise ValueError(f"duplicate code systems: {', '.join(sorted(duplicates))}")
-        return v
-
-    def get_code_system(self, name: str) -> CodeSystem | None:
-        """The code system with this name, or None if it is not configured."""
-        for c in self.code_systems:
-            if c.name == name:
-                return c
-        return None
+    # Refuse to ingest a dump that removes more units than this, unless forced.
+    # Protects against a truncated dump terminating half the tree.
+    max_terminations: int = 10
