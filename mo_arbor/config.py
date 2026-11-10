@@ -48,11 +48,6 @@ class CodeSystem(BaseModel, frozen=True):
     # customer_system_%Y%m%d_%H%M%S.csv.
     file_pattern: str = Field(min_length=1)
 
-    # The UUID of a unit made by hand in MO, which the dumps' roots are put
-    # under, for code systems whose dumps have several roots, such as Økosted.
-    # Without it, the roots are at the top of MO.
-    root: UUID | None = None
-
     # Refuse to ingest a dump that removes more units than this, unless forced.
     # Protects against a truncated dump terminating half the tree.
     max_terminations: int = 10
@@ -96,9 +91,11 @@ class CodeSystem(BaseModel, frozen=True):
 
     def parent_uuid(self, unit: Unit) -> UUID | None:
         """The UUID of a unit's parent in MO."""
-        if unit.parent_user_key is None:
-            return self.root
-        return self.org_unit_uuid(unit.parent_user_key)
+        if unit.parent_user_key is not None:
+            return self.org_unit_uuid(unit.parent_user_key)
+        if self.root_unit is None:
+            return None
+        return self.root_unit.uuid
 
 
 class Settings(BaseSettings):
