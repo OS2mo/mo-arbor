@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
+import json
 from collections.abc import Awaitable
 from collections.abc import Callable
 from datetime import date
@@ -869,6 +870,17 @@ async def test_no_dump_fails(
 async def test_unknown_code_system(test_client: AsyncClient) -> None:
     r = await test_client.post(
         "/unknown/org_unit",
+        json=jsonable_encoder(Event(subject=CHILD, priority=1)),
+    )
+
+    assert r.status_code == 422
+
+
+@pytest.mark.integration_test
+@pytest.mark.envvar({"CODE_SYSTEMS": json.dumps(["sor"])})
+async def test_code_system_not_configured(test_client: AsyncClient) -> None:
+    r = await test_client.post(
+        "/okosted/org_unit",
         json=jsonable_encoder(Event(subject=CHILD, priority=1)),
     )
 
