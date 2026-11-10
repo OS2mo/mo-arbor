@@ -31,7 +31,7 @@ it was invalid. A dump is a CSV file as described in the supplier's spec
 "Kodesystemfiler til OS2mo"
 ([#69230](https://redmine.magenta.dk/issues/69230)):
 - The rows without a `kode_parent` are roots, which become the top units in
-  MO, or go under the code system's `root` (see below).
+  MO, or go under the code system's root unit (see below).
 - Every row must have a `type` and a `niveau`.
 - A unit is valid from `gyldig_fra` to `gyldig_til`, cut to its parent's
   validity. A unit that is gone from the dump is terminated.
@@ -77,10 +77,10 @@ A unit's UUID is derived from its code and the code system's `name`, so the
 same code in two code systems is two units. Never rename a code system, as
 MO's existing units would become unreachable.
 
-A dump's roots are at the top of MO, unless the code system has a `root`: the
-UUID of a unit made by hand in MO, which they are put under. Økosted's dumps
-have several roots, which belong under one Økosted unit. Changing `root` does
-not move existing units, as only changes in the dumps send events.
+SOR's dump has a single root, which is at the top of MO. Økosted's dumps have
+several roots, its legal entities, which go under a root unit the integration
+makes before it sends the first events: "Økosted", of type `region` and from
+1900-01-01. The `region` class must exist in MO, or Økosted is not ingested.
 
 The type and level are the classes in the `org_unit_type` and
 `org_unit_level` facets whose user_key is the row's `type` and `niveau`. If a

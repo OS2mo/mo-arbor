@@ -38,11 +38,6 @@ class CodeSystem(BaseModel, frozen=True):
     # UUIDs, so renaming a code system makes MO's existing units unreachable.
     name: CodeSystemName
 
-    # The UUID of a unit made by hand in MO, which the dumps' roots are put
-    # under, for code systems whose dumps have several roots, such as Økosted.
-    # Without it, the roots are at the top of MO.
-    root: UUID | None = None
-
     # Refuse to ingest a dump that removes more units than this, unless forced.
     # Protects against a truncated dump terminating half the tree.
     max_terminations: int = 10
@@ -85,9 +80,11 @@ class CodeSystem(BaseModel, frozen=True):
 
     def parent_uuid(self, unit: Unit) -> UUID | None:
         """The UUID of a unit's parent in MO."""
-        if unit.parent_user_key is None:
-            return self.root
-        return self.org_unit_uuid(unit.parent_user_key)
+        if unit.parent_user_key is not None:
+            return self.org_unit_uuid(unit.parent_user_key)
+        if self.root_unit is None:
+            return None
+        return self.org_unit_uuid(self.root_unit.user_key)
 
 
 class Settings(BaseSettings):
@@ -98,7 +95,7 @@ class Settings(BaseSettings):
     fastramqpi: FastRAMQPISettings
 
     # The code systems, as a JSON list, e.g.
-    # CODE_SYSTEMS='[{"name": "sor"}, {"name": "okosted", "root": "..."}]'.
+    # CODE_SYSTEMS='[{"name": "sor"}, {"name": "okosted"}]'.
     code_systems: list[CodeSystem]
 
     @validator("code_systems")
