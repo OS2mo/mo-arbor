@@ -28,7 +28,7 @@ A = "100001000016006"
 B = "1000001000016004"
 C = "20011000016005"
 
-# File patterns of CODE_SYSTEMS in CI
+# File patterns of CODE_SYSTEMS in tests/conftest.py
 MARCH_31 = "region_sor_20260331_120000.csv"
 APRIL_30 = "region_sor_20260430_120000.csv"
 MAY_1 = "region_sor_20260501_120000.csv"
@@ -48,18 +48,22 @@ async def listen(graphql_client: GraphQLClient, namespace: str) -> UUID:
     return listener.uuid
 
 
-async def handle(graphql_client: GraphQLClient, listener: UUID) -> set[str]:
+async def consume_all_events(graphql_client: GraphQLClient, listener: UUID) -> set[str]:
     """Acknowledge the listener's events, as the handler does.
 
     Returns their subjects.
     """
     subjects: set[str] = set()
-    while True:
+    # `event_fetch` uses `for update skip locked` in MO, so it returns null if
+    # it overlaps with FastRAMQPI's `graphql_events_quick_retry` fixture.
+    # `list_events` is a plain read, which never skips locked rows, so we ask
+    # that instead.
+    while (await graphql_client._testing__list_events(listener)).objects:
         event = await graphql_client._testing__fetch_event(listener)
-        if event is None:
-            return subjects
-        subjects.add(event.subject)
-        await graphql_client._testing__acknowledge_event(event.token)
+        if event is not None:
+            subjects.add(event.subject)
+            await graphql_client._testing__acknowledge_event(event.token)
+    return subjects
 
 
 async def ingest_all(test_client: AsyncClient) -> None:
@@ -103,7 +107,7 @@ async def test_no_dumps(
 
     with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):
         await ingest_all(test_client)
-    assert await handle(graphql_client, listener) == set()
+    assert await consume_all_events(graphql_client, listener) == set()
     assert not_ingested(cap_logs) == [
         "no dumps match region_sor_%Y%m%d_%H%M%S.csv",
         "no dumps match region_okosted_%Y%m%d_%H%M%S.csv",
@@ -125,8 +129,8 @@ async def test_code_systems_are_ingested_separately(
 
     with pytest.raises(HTTPStatusError):
         await ingest_all(test_client)
-    assert await handle(graphql_client, sor) == set()
-    assert await handle(graphql_client, okosted) == {"X", "Y"}
+    assert await consume_all_events(graphql_client, sor) == set()
+    assert await consume_all_events(graphql_client, okosted) == {"X", "Y"}
 
 
 @pytest.mark.integration_test
@@ -148,7 +152,7 @@ async def test_first_ingest_sends_every_unit_in_newest_dump(
     await upload_file(MAY_1, ROOT_A_B)
 
     assert await ingest(test_client) == ingested(MAY_1, added={ROOT, A, B})
-    assert await handle(graphql_client, listener) == {ROOT, A, B}
+    assert await consume_all_events(graphql_client, listener) == {ROOT, A, B}
 
 
 @pytest.mark.integration_test
@@ -159,10 +163,10 @@ async def test_ingest_twice_does_nothing(
     listener = await listen(graphql_client, "sor")
     await upload_file(APRIL_30, ROOT_A_B)
     assert await ingest(test_client) == ingested(APRIL_30, added={ROOT, A, B})
-    assert await handle(graphql_client, listener) == {ROOT, A, B}
+    assert await consume_all_events(graphql_client, listener) == {ROOT, A, B}
 
     assert await ingest(test_client) is None
-    assert await handle(graphql_client, listener) == set()
+    assert await consume_all_events(graphql_client, listener) == set()
 
 
 @pytest.mark.integration_test
@@ -177,7 +181,7 @@ async def test_dumps_in_between_are_skipped(
     listener = await listen(graphql_client, "sor")
     await upload_file(APRIL_30, ROOT_A_B)
     assert await ingest(test_client) == ingested(APRIL_30, added={ROOT, A, B})
-    assert await handle(graphql_client, listener) == {ROOT, A, B}
+    assert await consume_all_events(graphql_client, listener) == {ROOT, A, B}
 
     await upload_file(
         MAY_1, file(row(ROOT), row(A, parent=ROOT), row(B, parent=ROOT, name="Renamed"))
@@ -185,7 +189,7 @@ async def test_dumps_in_between_are_skipped(
     await upload_file(MAY_2, file(row(ROOT), row(A, parent=ROOT), row(C, parent=ROOT)))
 
     assert await ingest(test_client) == ingested(MAY_2, added={C}, removed={B})
-    assert await handle(graphql_client, listener) == {B, C}
+    assert await consume_all_events(graphql_client, listener) == {B, C}
 
 
 @pytest.mark.integration_test
@@ -196,12 +200,12 @@ async def test_dump_older_than_last_ingest_is_ignored(
     listener = await listen(graphql_client, "sor")
     await upload_file(APRIL_30, ROOT_A_B)
     assert await ingest(test_client) == ingested(APRIL_30, added={ROOT, A, B})
-    assert await handle(graphql_client, listener) == {ROOT, A, B}
+    assert await consume_all_events(graphql_client, listener) == {ROOT, A, B}
 
     await upload_file(MARCH_31, file(row(ROOT)))
 
     assert await ingest(test_client) is None
-    assert await handle(graphql_client, listener) == set()
+    assert await consume_all_events(graphql_client, listener) == set()
 
 
 @pytest.mark.integration_test
@@ -212,13 +216,13 @@ async def test_invalid_dump_is_not_ingested(
     listener = await listen(graphql_client, "sor")
     await upload_file(APRIL_30, ROOT_A_B)
     assert await ingest(test_client) == ingested(APRIL_30, added={ROOT, A, B})
-    assert await handle(graphql_client, listener) == {ROOT, A, B}
+    assert await consume_all_events(graphql_client, listener) == {ROOT, A, B}
 
     await upload_file(MAY_1, "not a dump")
 
     with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):
         await ingest(test_client)
-    assert await handle(graphql_client, listener) == set()
+    assert await consume_all_events(graphql_client, listener) == set()
     (error,) = not_ingested(cap_logs)
     assert error.startswith(f"{MAY_1}: ")
 
@@ -226,7 +230,7 @@ async def test_invalid_dump_is_not_ingested(
     await upload_file(MAY_1, file(row(ROOT), row(A, parent=ROOT)))
 
     assert await ingest(test_client) == ingested(MAY_1, removed={B})
-    assert await handle(graphql_client, listener) == {B}
+    assert await consume_all_events(graphql_client, listener) == {B}
 
 
 @pytest.mark.integration_test
@@ -247,7 +251,7 @@ async def test_last_ingested_dump_not_found(
 
     with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):
         await ingest(test_client)
-    assert await handle(graphql_client, listener) == set()
+    assert await consume_all_events(graphql_client, listener) == set()
     assert not_ingested(cap_logs) == [f"{APRIL_30} is not in the file store"]
 
 
@@ -265,7 +269,7 @@ async def test_invalid_last_ingested_dump(
     listener = await listen(graphql_client, "sor")
     await upload_file(APRIL_30, ROOT_A_B)
     assert await ingest(test_client) == ingested(APRIL_30, added={ROOT, A, B})
-    assert await handle(graphql_client, listener) == {ROOT, A, B}
+    assert await consume_all_events(graphql_client, listener) == {ROOT, A, B}
 
     await upload_file(APRIL_30, "not a dump")
     # The loaded dumps are cached, so clear the cache to read the overwritten
@@ -275,7 +279,7 @@ async def test_invalid_last_ingested_dump(
 
     with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):
         await ingest(test_client)
-    assert await handle(graphql_client, listener) == set()
+    assert await consume_all_events(graphql_client, listener) == set()
     (error,) = not_ingested(cap_logs)
     assert error.startswith(f"{APRIL_30}: ")
 
@@ -300,22 +304,22 @@ async def test_too_many_terminations_are_not_ingested(
     listener = await listen(graphql_client, "sor")
     await upload_file(APRIL_30, ROOT_A_B)
     assert await ingest(test_client) == ingested(APRIL_30, added={ROOT, A, B})
-    assert await handle(graphql_client, listener) == {ROOT, A, B}
+    assert await consume_all_events(graphql_client, listener) == {ROOT, A, B}
 
     # Removes A and B, one more than max_terminations
     await upload_file(MAY_1, file(row(ROOT)))
 
     with capture_logs() as cap_logs, pytest.raises(HTTPStatusError):
         await ingest(test_client)
-    assert await handle(graphql_client, listener) == set()
+    assert await consume_all_events(graphql_client, listener) == set()
     assert not_ingested(cap_logs) == [f"{MAY_1} has more than 1 terminations"]
 
     # An operator checks the dump and forces it through
     expected = ingested(MAY_1, removed={A, B})
     assert await ingest(test_client, dry_run=True, force=True) == expected
-    assert await handle(graphql_client, listener) == set()
+    assert await consume_all_events(graphql_client, listener) == set()
     assert await ingest(test_client, force=True) == expected
-    assert await handle(graphql_client, listener) == {A, B}
+    assert await consume_all_events(graphql_client, listener) == {A, B}
 
 
 @pytest.mark.integration_test
@@ -325,14 +329,14 @@ async def test_dry_run(
     listener = await listen(graphql_client, "sor")
     await upload_file(APRIL_30, ROOT_A_B)
     assert await ingest(test_client) == ingested(APRIL_30, added={ROOT, A, B})
-    assert await handle(graphql_client, listener) == {ROOT, A, B}
+    assert await consume_all_events(graphql_client, listener) == {ROOT, A, B}
 
     await upload_file(MAY_1, file(row(ROOT), row(A, parent=ROOT)))
     expected = ingested(MAY_1, removed={B})
 
     assert await ingest(test_client, dry_run=True) == expected
-    assert await handle(graphql_client, listener) == set()
+    assert await consume_all_events(graphql_client, listener) == set()
 
     # Nothing was recorded, so the real ingest does the same
     assert await ingest(test_client) == expected
-    assert await handle(graphql_client, listener) == {B}
+    assert await consume_all_events(graphql_client, listener) == {B}

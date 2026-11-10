@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: MPL-2.0
 from typing import Literal
 from typing import assert_never
+from uuid import NAMESPACE_URL
+from uuid import UUID
+from uuid import uuid5
 
 from fastramqpi.config import Settings as FastRAMQPISettings
 from more_itertools import duplicates_everseen
@@ -11,6 +14,7 @@ from pydantic import Field
 from pydantic import validator
 
 from mo_arbor.code_system_file import Rows
+from mo_arbor.code_system_file import Unit
 from mo_arbor.sor import SorRows
 
 CodeSystemName = Literal["sor", "okosted"]
@@ -20,13 +24,19 @@ class CodeSystem(BaseModel, frozen=True):
     """A code system, such as SOR, whose dumps become a tree of org units."""
 
     # Which code system it is. It is also the namespace of the code system's
-    # events in MO.
+    # events in MO, and part of its units' UUIDs, so renaming a code system
+    # makes MO's existing units unreachable.
     name: CodeSystemName
 
     # File names of the code system's dumps in MO's EXPORTS file store, with
     # the time of the dump as `datetime.strptime` directives, e.g.
     # customer_system_%Y%m%d_%H%M%S.csv.
     file_pattern: str = Field(min_length=1)
+
+    # The UUID of a unit made by hand in MO, which the dumps' roots are put
+    # under, for code systems whose dumps have several roots, such as Økosted.
+    # Without it, the roots are at the top of MO.
+    root: UUID | None = None
 
     # Refuse to ingest a dump that removes more units than this, unless forced.
     # Protects against a truncated dump terminating half the tree.
@@ -44,8 +54,18 @@ class CodeSystem(BaseModel, frozen=True):
             case _:
                 assert_never(self.name)
 
+    def org_unit_uuid(self, user_key: str) -> UUID:
+        namespace = uuid5(NAMESPACE_URL, self.name)
+        return uuid5(namespace, user_key)
 
-class _Settings(BaseSettings):
+    def parent_uuid(self, unit: Unit) -> UUID | None:
+        """The UUID of a unit's parent in MO."""
+        if unit.parent_user_key is None:
+            return self.root
+        return self.org_unit_uuid(unit.parent_user_key)
+
+
+class Settings(BaseSettings):
     class Config:
         frozen = True
         env_nested_delimiter = "__"
@@ -62,3 +82,10 @@ class _Settings(BaseSettings):
         if duplicates:
             raise ValueError(f"duplicate code systems: {', '.join(sorted(duplicates))}")
         return v
+
+    def get_code_system(self, name: str) -> CodeSystem | None:
+        """The code system with this name, or None if it is not configured."""
+        for c in self.code_systems:
+            if c.name == name:
+                return c
+        return None
