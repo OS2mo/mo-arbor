@@ -20,7 +20,7 @@ services:
       # AMQP connection settings to be present.
       FASTRAMQPI__AMQP__URL: "amqp://guest:guest@msg-broker:5672/"
 
-      CODE_SYSTEMS: '[{"name": "sor"}, {"name": "okosted"}]'
+      CODE_SYSTEMS: '["sor", "okosted"]'
 
       # Database
       FASTRAMQPI__DATABASE__USER: "fastramqpi"

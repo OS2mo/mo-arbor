@@ -32,5 +32,12 @@ def integration_test_environment_variables(monkeypatch: MonkeyPatch) -> None:
     """
     monkeypatch.setenv(
         "CODE_SYSTEMS",
-        json.dumps([{"name": "sor"}, {"name": "okosted"}]),
+        json.dumps(["sor", "okosted"]),
     )
+
+
+@pytest.fixture
+def minimal_valid_environmental_variables(monkeypatch: MonkeyPatch) -> None:
+    """What FastRAMQPI's settings require, for tests of the settings."""
+    monkeypatch.setenv("FASTRAMQPI__CLIENT_ID", "mo-arbor")
+    monkeypatch.setenv("FASTRAMQPI__CLIENT_SECRET", "secret")
