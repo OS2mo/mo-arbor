@@ -24,6 +24,8 @@ from mo_arbor.diff import Diff
 from mo_arbor.diff import diff
 from mo_arbor.dumps import DumpNotFound
 from mo_arbor.dumps import DumpStore
+from mo_arbor.mo import ClassNotFound
+from mo_arbor.mo import create_root_unit
 
 router = APIRouter()
 logger = structlog.stdlib.get_logger()
@@ -123,6 +125,8 @@ async def ingest_code_system(
     )
     if dry_run:
         return ingested
+    # Before the events, so the dump's roots have their parent
+    await create_root_unit(mo, code_system)
     # Events are sent before the dump is recorded, so if we crash in between,
     # the next ingest sends them again rather than losing them. An event sent
     # twice is harmless, as the handler reads the newest dump either way.
@@ -159,10 +163,10 @@ async def ingest(
     may be wrong.
 
     Nothing is ingested for a code system whose newest dump is invalid, whose
-    last ingested dump is gone or invalid, or whose newest dump removes more
-    than its `max_terminations` units unless `force` is set. These are logged
-    as errors, and the request fails after the other code systems are
-    ingested.
+    last ingested dump is gone or invalid, whose newest dump removes more
+    than its `max_terminations` units unless `force` is set, or whose root
+    unit's type is not a class in MO. These are logged as errors, and the
+    request fails after the other code systems are ingested.
 
     With `dry_run`, returns what would be ingested without sending events or
     recording anything.
@@ -182,7 +186,7 @@ async def ingest(
             results[c.name] = await ingest_code_system(
                 c, mo, dump_stores[c.name], sessionmaker, dry_run=dry_run, force=force
             )
-        except (DumpNotFound, InvalidFile, TooManyTerminations) as e:
+        except (DumpNotFound, InvalidFile, TooManyTerminations, ClassNotFound) as e:
             logger.error("Not ingested", code_system=c.name, error=str(e))
             failed.append(c.name)
     if failed:
