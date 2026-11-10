@@ -45,7 +45,7 @@ class CodeSystem(BaseModel, frozen=True):
                 assert_never(self.name)
 
 
-class _Settings(BaseSettings):
+class Settings(BaseSettings):
     class Config:
         frozen = True
         env_nested_delimiter = "__"

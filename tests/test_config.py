@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from mo_arbor.code_system_file import Rows
 from mo_arbor.config import CodeSystem
 from mo_arbor.config import CodeSystemName
-from mo_arbor.config import _Settings
+from mo_arbor.config import Settings
 from mo_arbor.sor import SorRows
 
 PATTERN = "customer_system_%Y%m%d_%H%M%S.csv"
@@ -47,5 +47,5 @@ def test_code_system_names_are_unique() -> None:
     sor = CodeSystem(name="sor", file_pattern=PATTERN)
     okosted = CodeSystem(name="okosted", file_pattern=PATTERN)
     with pytest.raises(ValidationError) as exc_info:
-        _Settings(code_systems=[sor, okosted, sor])
+        Settings(code_systems=[sor, okosted, sor])
     assert "duplicate code systems: sor" in str(exc_info.value)
