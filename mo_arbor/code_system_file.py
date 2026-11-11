@@ -46,11 +46,6 @@ class Row(BaseModel, frozen=True, anystr_strip_whitespace=True, extra=Extra.forb
     # which the event handler looks up
     org_unit_type: str = Field(alias="type", min_length=1)
     org_unit_level: str = Field(alias="niveau", min_length=1)
-    # Not used
-    active: str = Field(alias="aktiv")
-    deleted: str = Field(alias="dw_is_deleted")
-    inserted: str = Field(alias="dw_timestamp_insert")
-    updated: str = Field(alias="dw_timestamp_update")
 
     @validator("parent_user_key", "validity_to", pre=True)
     def empty_is_none(cls, v: Any) -> Any:
