@@ -19,10 +19,6 @@ COLUMNS = [
     "navn",
     "type",
     "niveau",
-    "aktiv",
-    "dw_is_deleted",
-    "dw_timestamp_insert",
-    "dw_timestamp_update",
 ]
 
 Row = dict[str, str]
@@ -42,7 +38,7 @@ def row(
     """Build a row like those in a real file.
 
     The arguments are named as the fields in MO. `extra` sets other columns,
-    such as aktiv.
+    such as one the file should not have.
     """
     return {
         "kode": user_key,
@@ -52,10 +48,6 @@ def row(
         "navn": name,
         "type": org_unit_type,
         "niveau": org_unit_level,
-        "aktiv": "true",
-        "dw_is_deleted": "false",
-        "dw_timestamp_insert": "2026-04-29T08:24:33",
-        "dw_timestamp_update": "2026-07-12T02:01:15",
         **extra,
     }
 

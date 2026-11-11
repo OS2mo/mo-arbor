@@ -35,8 +35,7 @@ as described in the supplier's spec
 - Every row must have a `type` and a `niveau`.
 - A unit is valid from `gyldig_fra` to `gyldig_til`, cut to its parent's
   validity. A unit that is gone from the dump is terminated.
-- `aktiv`, `dw_is_deleted` and the timestamps are not used, and a file with
-  other columns is rejected.
+- A file with other columns is rejected.
 - SOR codes must be valid SOR IDs, which catches codes damaged by Excel.
 
 ### Ingest
