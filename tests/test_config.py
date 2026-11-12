@@ -23,12 +23,12 @@ def test_rows_model_by_name(name: CodeSystemName, rows_model: type[Rows]) -> Non
 
 
 def test_parent() -> None:
-    """The roots are put under the root, if the code system has one."""
-    root = UUID("4f3a9c2e-1b7d-4e8a-9f60-2c5d8b1a7e43")
+    """Økosted's roots go under its root unit, and SOR's are at the top."""
     sor = CodeSystem(name="sor", file_pattern=PATTERN)
-    okosted = CodeSystem(name="okosted", file_pattern=PATTERN, root=root)
+    okosted = CodeSystem(name="okosted", file_pattern=PATTERN)
     units = Rows.parse(file(row("R"), row("C", parent="R")))
-    assert okosted.parent_uuid(units["R"]) == root
+    assert okosted.root_unit is not None
+    assert okosted.parent_uuid(units["R"]) == okosted.root_unit.uuid
     assert okosted.parent_uuid(units["C"]) == okosted.org_unit_uuid("R")
     assert sor.parent_uuid(units["R"]) is None
 

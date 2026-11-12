@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
+from datetime import date
 from typing import Literal
 from typing import assert_never
 from uuid import NAMESPACE_URL
@@ -20,6 +21,20 @@ from mo_arbor.sor import SorRows
 CodeSystemName = Literal["sor", "okosted"]
 
 
+class RootUnit(BaseModel, frozen=True):
+    """A unit the integration makes in MO, which a code system's roots go under."""
+
+    # Not derived from its user_key like the other units', so changing its
+    # user_key does not make a new root unit
+    uuid: UUID
+    user_key: str
+    name: str
+    org_unit_type_user_key: str
+    # Before every unit of the code system, as MO rejects a unit that is valid
+    # before its parent
+    validity_from: date
+
+
 class CodeSystem(BaseModel, frozen=True):
     """A code system, such as SOR, whose dumps become a tree of org units."""
 
@@ -32,11 +47,6 @@ class CodeSystem(BaseModel, frozen=True):
     # the time of the dump as `datetime.strptime` directives, e.g.
     # customer_system_%Y%m%d_%H%M%S.csv.
     file_pattern: str = Field(min_length=1)
-
-    # The UUID of a unit made by hand in MO, which the dumps' roots are put
-    # under, for code systems whose dumps have several roots, such as Økosted.
-    # Without it, the roots are at the top of MO.
-    root: UUID | None = None
 
     # Refuse to ingest a dump that removes more units than this, unless forced.
     # Protects against a truncated dump terminating half the tree.
@@ -54,15 +64,38 @@ class CodeSystem(BaseModel, frozen=True):
             case _:
                 assert_never(self.name)
 
+    @property
+    def root_unit(self) -> RootUnit | None:
+        """The unit the dumps' roots go under, or None if they are at the top.
+
+        Økosted's dumps have several roots, its legal entities, which belong
+        under one Økosted unit.
+        """
+        match self.name:
+            case "sor":
+                return None
+            case "okosted":
+                return RootUnit(
+                    uuid=uuid5(NAMESPACE_URL, "Økosted"),
+                    user_key="okosted",
+                    name="Økosted",
+                    org_unit_type_user_key="region",
+                    validity_from=date(1900, 1, 1),
+                )
+            case _:  # pragma: no cover
+                assert_never(self.name)
+
     def org_unit_uuid(self, user_key: str) -> UUID:
         namespace = uuid5(NAMESPACE_URL, self.name)
         return uuid5(namespace, user_key)
 
     def parent_uuid(self, unit: Unit) -> UUID | None:
         """The UUID of a unit's parent in MO."""
-        if unit.parent_user_key is None:
-            return self.root
-        return self.org_unit_uuid(unit.parent_user_key)
+        if unit.parent_user_key is not None:
+            return self.org_unit_uuid(unit.parent_user_key)
+        if self.root_unit is None:
+            return None
+        return self.root_unit.uuid
 
 
 class Settings(BaseSettings):
