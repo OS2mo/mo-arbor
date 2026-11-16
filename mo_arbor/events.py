@@ -46,6 +46,12 @@ class Values(BaseModel, frozen=True):
     org_unit_level: UUID | None
 
 
+async def org_unit_level(mo: GraphQLClient, dump_unit: Unit) -> UUID | None:
+    if dump_unit.org_unit_level is None:
+        return None
+    return await get_class(mo, "org_unit_level", dump_unit.org_unit_level)
+
+
 async def values_from_dump(
     mo: GraphQLClient, code_system: CodeSystem, dump_unit: Unit
 ) -> Values:
@@ -54,7 +60,7 @@ async def values_from_dump(
         name=code_system.unit_name(dump_unit),
         parent=code_system.parent_uuid(dump_unit),
         org_unit_type=await get_class(mo, "org_unit_type", dump_unit.org_unit_type),
-        org_unit_level=await get_class(mo, "org_unit_level", dump_unit.org_unit_level),
+        org_unit_level=await org_unit_level(mo, dump_unit),
     )
 
 
