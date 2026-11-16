@@ -101,3 +101,27 @@ query ListOrgUnits($roots: [UUID!]!, $from_date: DateTime!, $cursor: Cursor) {
     }
   }
 }
+
+query GetFacet($user_key: String!) {
+  facets(filter: {user_keys: [$user_key]}) {
+    objects {
+      uuid
+    }
+  }
+}
+
+query ListClasses($facet: String!, $user_keys: [String!]!) {
+  classes(filter: {facet: {user_keys: [$facet]}, user_keys: $user_keys}) {
+    objects {
+      current {
+        user_key
+      }
+    }
+  }
+}
+
+mutation CreateClass($input: ClassCreateInput!) {
+  class_create(input: $input) {
+    uuid
+  }
+}

@@ -9,6 +9,10 @@ from ._testing__declare_event_listener import (
 )
 from ._testing__fetch_event import TestingFetchEvent
 from ._testing__fetch_event import TestingFetchEventEventFetch
+from ._testing__get_class_owner import TestingGetClassOwner
+from ._testing__get_class_owner import TestingGetClassOwnerClasses
+from ._testing__get_class_owner import TestingGetClassOwnerClassesObjects
+from ._testing__get_class_owner import TestingGetClassOwnerClassesObjectsCurrent
 from ._testing__get_org_unit_history import TestingGetOrgUnitHistory
 from ._testing__get_org_unit_history import TestingGetOrgUnitHistoryOrgUnits
 from ._testing__get_org_unit_history import TestingGetOrgUnitHistoryOrgUnitsObjects
@@ -24,6 +28,8 @@ from ._testing__list_events import TestingListEventsEventsObjects
 from .async_base_client import AsyncBaseClient
 from .base_model import BaseModel
 from .client import GraphQLClient
+from .create_class import CreateClass
+from .create_class import CreateClassClassCreate
 from .create_org_unit import CreateOrgUnit
 from .create_org_unit import CreateOrgUnitOrgUnitCreate
 from .enums import AccessLogModel
@@ -42,6 +48,9 @@ from .exceptions import GraphQlClientInvalidResponseError
 from .get_class import GetClass
 from .get_class import GetClassClasses
 from .get_class import GetClassClassesObjects
+from .get_facet import GetFacet
+from .get_facet import GetFacetFacets
+from .get_facet import GetFacetFacetsObjects
 from .get_org_unit import GetOrgUnit
 from .get_org_unit import GetOrgUnitOrgUnits
 from .get_org_unit import GetOrgUnitOrgUnitsObjects
@@ -197,6 +206,10 @@ from .input_types import UuidsBoundITUserFilter
 from .input_types import UuidsBoundLeaveFilter
 from .input_types import UuidsBoundOrganisationUnitFilter
 from .input_types import ValidityInput
+from .list_classes import ListClasses
+from .list_classes import ListClassesClasses
+from .list_classes import ListClassesClassesObjects
+from .list_classes import ListClassesClassesObjectsCurrent
 from .list_files import ListFiles
 from .list_files import ListFilesFiles
 from .list_files import ListFilesFilesObjects
@@ -240,6 +253,8 @@ __all__ = [
     "ClassTerminateInput",
     "ClassUpdateInput",
     "Collection",
+    "CreateClass",
+    "CreateClassClassCreate",
     "CreateOrgUnit",
     "CreateOrgUnitOrgUnitCreate",
     "DescendantParentBoundOrganisationUnitFilter",
@@ -280,6 +295,9 @@ __all__ = [
     "GetClass",
     "GetClassClasses",
     "GetClassClassesObjects",
+    "GetFacet",
+    "GetFacetFacets",
+    "GetFacetFacetsObjects",
     "GetOrgUnit",
     "GetOrgUnitOrgUnits",
     "GetOrgUnitOrgUnitsObjects",
@@ -324,6 +342,10 @@ __all__ = [
     "LeaveRegistrationFilter",
     "LeaveTerminateInput",
     "LeaveUpdateInput",
+    "ListClasses",
+    "ListClassesClasses",
+    "ListClassesClassesObjects",
+    "ListClassesClassesObjectsCurrent",
     "ListFiles",
     "ListFilesFiles",
     "ListFilesFilesObjects",
@@ -409,6 +431,10 @@ __all__ = [
     "TestingDeclareEventListenerEventListenerDeclare",
     "TestingFetchEvent",
     "TestingFetchEventEventFetch",
+    "TestingGetClassOwner",
+    "TestingGetClassOwnerClasses",
+    "TestingGetClassOwnerClassesObjects",
+    "TestingGetClassOwnerClassesObjectsCurrent",
     "TestingGetOrgUnitHistory",
     "TestingGetOrgUnitHistoryOrgUnits",
     "TestingGetOrgUnitHistoryOrgUnitsObjects",

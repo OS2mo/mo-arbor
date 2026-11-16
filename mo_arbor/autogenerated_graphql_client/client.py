@@ -13,6 +13,8 @@ from ._testing__declare_event_listener import (
 )
 from ._testing__fetch_event import TestingFetchEvent
 from ._testing__fetch_event import TestingFetchEventEventFetch
+from ._testing__get_class_owner import TestingGetClassOwner
+from ._testing__get_class_owner import TestingGetClassOwnerClasses
 from ._testing__get_org_unit_history import TestingGetOrgUnitHistory
 from ._testing__get_org_unit_history import TestingGetOrgUnitHistoryOrgUnits
 from ._testing__list_events import TestingListEvents
@@ -20,11 +22,15 @@ from ._testing__list_events import TestingListEventsEvents
 from .async_base_client import AsyncBaseClient
 from .base_model import UNSET
 from .base_model import UnsetType
+from .create_class import CreateClass
+from .create_class import CreateClassClassCreate
 from .create_org_unit import CreateOrgUnit
 from .create_org_unit import CreateOrgUnitOrgUnitCreate
 from .enums import FileStore
 from .get_class import GetClass
 from .get_class import GetClassClasses
+from .get_facet import GetFacet
+from .get_facet import GetFacetFacets
 from .get_org_unit import GetOrgUnit
 from .get_org_unit import GetOrgUnitOrgUnits
 from .input_types import ClassCreateInput
@@ -34,6 +40,8 @@ from .input_types import ListenerCreateInput
 from .input_types import OrganisationUnitCreateInput
 from .input_types import OrganisationUnitTerminateInput
 from .input_types import OrganisationUnitUpdateInput
+from .list_classes import ListClasses
+from .list_classes import ListClassesClasses
 from .list_files import ListFiles
 from .list_files import ListFilesFiles
 from .list_org_units import ListOrgUnits
@@ -230,6 +238,53 @@ class GraphQLClient(AsyncBaseClient):
         data = self.get_data(response)
         return ListOrgUnits.parse_obj(data).org_units
 
+    async def get_facet(self, user_key: str) -> GetFacetFacets:
+        query = gql("""
+            query GetFacet($user_key: String!) {
+              facets(filter: {user_keys: [$user_key]}) {
+                objects {
+                  uuid
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"user_key": user_key}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return GetFacet.parse_obj(data).facets
+
+    async def list_classes(
+        self, facet: str, user_keys: list[str]
+    ) -> ListClassesClasses:
+        query = gql("""
+            query ListClasses($facet: String!, $user_keys: [String!]!) {
+              classes(filter: {facet: {user_keys: [$facet]}, user_keys: $user_keys}) {
+                objects {
+                  current {
+                    user_key
+                  }
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"facet": facet, "user_keys": user_keys}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return ListClasses.parse_obj(data).classes
+
+    async def create_class(self, input: ClassCreateInput) -> CreateClassClassCreate:
+        query = gql("""
+            mutation CreateClass($input: ClassCreateInput!) {
+              class_create(input: $input) {
+                uuid
+              }
+            }
+            """)
+        variables: dict[str, object] = {"input": input}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return CreateClass.parse_obj(data).class_create
+
     async def _testing__declare_event_listener(
         self, input: ListenerCreateInput
     ) -> TestingDeclareEventListenerEventListenerDeclare:
@@ -339,3 +394,22 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return TestingGetOrgUnitHistory.parse_obj(data).org_units
+
+    async def _testing__get_class_owner(
+        self, facet: str, user_key: str
+    ) -> TestingGetClassOwnerClasses:
+        query = gql("""
+            query _Testing_GetClassOwner($facet: String!, $user_key: String!) {
+              classes(filter: {facet: {user_keys: [$facet]}, user_keys: [$user_key]}) {
+                objects {
+                  current {
+                    owner
+                  }
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"facet": facet, "user_key": user_key}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return TestingGetClassOwner.parse_obj(data).classes

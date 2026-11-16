@@ -27,7 +27,10 @@ from mo_arbor.diff import full_sync
 from mo_arbor.dumps import DumpNotFound
 from mo_arbor.dumps import DumpStore
 from mo_arbor.mo import ClassNotFound
+from mo_arbor.mo import FacetNotFound
+from mo_arbor.mo import create_classes
 from mo_arbor.mo import create_root_unit
+from mo_arbor.mo import missing_classes
 from mo_arbor.mo import units_in_mo
 
 router = APIRouter()
@@ -128,16 +131,20 @@ async def ingest_code_system(
             f"{file_name} has more than {max_terminations} terminations"
         )
 
+    new_classes = await missing_classes(mo, code_system.classes(dump.units))
     log.info(
         "Ingesting dump",
         file_name=file_name,
         added=len(changes.added),
         changed=len(changes.changed),
         removed=len(changes.removed),
+        new_classes=sorted(f"{c.facet}/{c.user_key}" for c in new_classes),
         dry_run=dry_run,
     )
     if dry_run:
         return ingested
+    # Before the root unit and the events, which need them
+    await create_classes(mo, new_classes)
     # Before the events, so the dump's roots have their parent
     await create_root_unit(mo, code_system)
     # Events are sent before the dump is recorded, so if we crash in between,
@@ -185,9 +192,14 @@ async def ingest(
 
     Nothing is ingested for a code system whose newest dump is invalid, or
     removes more than `MAX_TERMINATIONS` units unless `force` is set, or
-    whose root unit's type is not a class in MO.
+    whose classes' facet is not in MO.
     These are logged as errors, and the request fails after the other code
     systems are ingested.
+
+    The types and levels the dump uses, and the root unit's type, are made in
+    MO if they are missing, before the events. A type only one code system uses
+    is owned by its top unit, so it can only be chosen there. Classes MO has
+    already are left as they are.
 
     With `dry_run`, returns what would be ingested without sending events or
     recording anything.
@@ -212,7 +224,13 @@ async def ingest(
                 dry_run=dry_run,
                 force=force,
             )
-        except (DumpNotFound, InvalidFile, TooManyTerminations, ClassNotFound) as e:
+        except (
+            DumpNotFound,
+            InvalidFile,
+            TooManyTerminations,
+            ClassNotFound,
+            FacetNotFound,
+        ) as e:
             logger.error("Not ingested", code_system=name, error=str(e))
             failed.append(name)
     if failed:

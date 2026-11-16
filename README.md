@@ -39,7 +39,7 @@ as described in the supplier's spec
   its parent started is never valid while its parent is. It goes under
   "Historiske enheder" instead, with its children. The integration adds that
   unit under SOR's root, or at the top of Økosted, under its root unit. It is
-  of type `Ukendt`, which must be a class in MO, and has no level.
+  of type `Ukendt` and has no level.
 - A file with other columns is rejected.
 - SOR codes must be valid SOR IDs, which catches codes damaged by Excel.
 
@@ -88,11 +88,17 @@ SOR's dump has a single root, which is at the top of MO and is called "SOR"
 there, whatever the dump names it. A SOR dump with several roots is invalid.
 Økosted's dumps have several roots, its legal entities, which go under a root
 unit the integration makes before it sends the first events: "Økosted", of
-type `region` and from 1900-01-01. The `region` class must exist in MO, or Økosted is not ingested.
+type `region` and from 1900-01-01.
 
 The type and level are the classes in the `org_unit_type` and
-`org_unit_level` facets whose user_key is the row's `type` and `niveau`. If a
-class does not exist, the event fails and is retried until someone creates it.
+`org_unit_level` facets whose user_key is the row's `type` and `niveau`.
+Before it sends the events, an ingest creates the classes MO does not have,
+named as their user_key and valid from 1900-01-01; a dry run only logs them
+(`new_classes`). A type only this code system uses is owned by its top unit
+("SOR" or "Økosted"), so in MO's UI it can only be chosen in that tree. The
+types both code systems may use (`Ukendt` and the root units' types, such as
+`region`) and the levels have no owner. Classes MO has already are left as
+they are. The two facets must exist in MO, or nothing is ingested.
 
 
 ## Sundhedsvæsenets Organisationsregister (SOR)

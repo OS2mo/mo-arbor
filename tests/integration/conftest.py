@@ -93,12 +93,13 @@ async def _create_class(
     return r.uuid
 
 
-@pytest.fixture
+# Autouse, as every ingest makes the classes its dump needs in these facets
+@pytest.fixture(autouse=True)
 async def org_unit_type_facet(graphql_client: GraphQLClient) -> UUID:
     return await _create_facet(graphql_client, "org_unit_type")
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 async def org_unit_level_facet(graphql_client: GraphQLClient) -> UUID:
     return await _create_facet(graphql_client, "org_unit_level")
 

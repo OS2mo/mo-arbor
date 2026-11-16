@@ -31,6 +31,7 @@ class InvalidFile(Exception):
 # The user_key of the unit that holds the units their parent is never valid
 # with. Not a code in the files, so it cannot clash with one.
 HISTORIC_USER_KEY = "historiske_enheder"
+HISTORIC_ORG_UNIT_TYPE = "Ukendt"
 
 
 class Row(BaseModel, frozen=True, anystr_strip_whitespace=True, extra=Extra.forbid):
@@ -135,7 +136,7 @@ def historic_units(parent: Unit | None) -> Unit:
         user_key=HISTORIC_USER_KEY,
         parent=parent,
         name="Historiske enheder",
-        org_unit_type="Ukendt",
+        org_unit_type=HISTORIC_ORG_UNIT_TYPE,
         org_unit_level=None,
         validity_from=date(1900, 1, 1),
         validity_to=None,

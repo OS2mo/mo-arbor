@@ -51,3 +51,13 @@ query _Testing_GetOrgUnitHistory($uuid: UUID!) {
     }
   }
 }
+
+query _Testing_GetClassOwner($facet: String!, $user_key: String!) {
+  classes(filter: {facet: {user_keys: [$facet]}, user_keys: [$user_key]}) {
+    objects {
+      current {
+        owner
+      }
+    }
+  }
+}

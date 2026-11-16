@@ -163,18 +163,75 @@ async def test_ingest_makes_the_root_unit(
     assert current.name == "Økosted"
 
 
+async def class_owner(
+    graphql_client: GraphQLClient, facet: str, user_key: str
+) -> UUID | None:
+    r = await graphql_client._testing__get_class_owner(facet, user_key)
+    current = one(r.objects).current
+    assert current is not None
+    return current.owner
+
+
 @pytest.mark.integration_test
-async def test_root_unit_without_its_class(
-    test_client: AsyncClient, upload_file: UploadFile
+async def test_ingest_makes_missing_classes(
+    test_client: AsyncClient,
+    graphql_client: GraphQLClient,
+    upload_file: UploadFile,
+    sor: CodeSystem,
+    okosted: CodeSystem,
 ) -> None:
-    """Økosted is not ingested, as its root unit's type is not a class in MO."""
-    await upload_file(OKOSTED_APRIL_30, file(row("X")))
+    """Each code system's types are owned by its top unit, levels by none."""
+    await upload_file(
+        APRIL_30,
+        file(
+            row(ROOT, org_unit_type="region", org_unit_level="1"),
+            row(A, parent=ROOT, org_unit_type="klinisk enhed", org_unit_level="2"),
+        ),
+    )
+    await upload_file(OKOSTED_APRIL_30, file(row("X", org_unit_type="juridisk enhed")))
 
-    with capture_logs() as cap_logs:
-        r = await test_client.post("/ingest", params={"code_system": "okosted"})
+    await ingest_all(test_client)
 
-    assert r.status_code == 500
-    assert not_ingested(cap_logs) == ["no org_unit_type class with user_key 'region'"]
+    assert okosted.root_unit is not None
+    assert await class_owner(graphql_client, "org_unit_type", "region") is None
+    assert await class_owner(
+        graphql_client, "org_unit_type", "klinisk enhed"
+    ) == sor.org_unit_uuid(ROOT)
+    assert (
+        await class_owner(graphql_client, "org_unit_type", "juridisk enhed")
+        == okosted.root_unit.uuid
+    )
+    for level in ("1", "2", "N1"):
+        assert await class_owner(graphql_client, "org_unit_level", level) is None
+
+
+@pytest.mark.integration_test
+async def test_ingest_keeps_existing_classes(
+    test_client: AsyncClient,
+    graphql_client: GraphQLClient,
+    upload_file: UploadFile,
+    klinisk_enhed: UUID,
+) -> None:
+    """A class MO has already is not made again, nor given an owner."""
+    await upload_file(APRIL_30, ROOT_A_B)
+
+    await ingest(test_client)
+
+    r = await graphql_client.get_class("org_unit_type", "klinisk enhed")
+    assert one(r.objects).uuid == klinisk_enhed
+    assert await class_owner(graphql_client, "org_unit_type", "klinisk enhed") is None
+
+
+@pytest.mark.integration_test
+async def test_dry_run_makes_no_classes(
+    test_client: AsyncClient, graphql_client: GraphQLClient, upload_file: UploadFile
+) -> None:
+    await upload_file(APRIL_30, ROOT_A_B)
+
+    await ingest(test_client, dry_run=True)
+
+    r = await graphql_client.get_class("org_unit_type", "klinisk enhed")
+    assert r.objects == []
 
 
 @pytest.mark.integration_test

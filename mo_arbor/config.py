@@ -3,6 +3,7 @@
 from datetime import date
 from typing import Literal
 from typing import assert_never
+from typing import get_args
 from uuid import NAMESPACE_URL
 from uuid import UUID
 from uuid import uuid5
@@ -11,6 +12,7 @@ from fastramqpi.config import Settings as FastRAMQPISettings
 from pydantic import BaseModel
 from pydantic import BaseSettings
 
+from mo_arbor.code_system_file import HISTORIC_ORG_UNIT_TYPE
 from mo_arbor.code_system_file import Rows
 from mo_arbor.code_system_file import Unit
 from mo_arbor.sor import SorRows
@@ -30,6 +32,15 @@ class RootUnit(BaseModel, frozen=True):
     # Before every unit of the code system, as MO rejects a unit that is valid
     # before its parent
     validity_from: date
+
+
+class MOClass(BaseModel, frozen=True):
+    """A class the integration makes in MO if it is missing."""
+
+    facet: str
+    user_key: str
+    # The unit under which the class can be chosen in MO, or None for anywhere
+    owner: UUID | None
 
 
 class CodeSystem(BaseModel, frozen=True):
@@ -95,6 +106,44 @@ class CodeSystem(BaseModel, frozen=True):
             return self.root_name
         return unit.name
 
+    def class_owner(self, units: dict[str, Unit]) -> UUID | None:
+        """The owner of the classes only this code system uses: its top unit.
+
+        That is its root unit, or the dump's root if it has a single one.
+        """
+        if self.root_unit is not None:
+            return self.root_unit.uuid
+        roots = [key for key, unit in units.items() if unit.parent is None]
+        if len(roots) != 1:
+            return None
+        return self.org_unit_uuid(roots[0])
+
+    def classes(self, units: dict[str, Unit]) -> set[MOClass]:
+        """The classes in MO that a dump's units and the root unit need.
+
+        The code systems use different types, so a type is owned by the code
+        system's top unit, except the types every code system may use. Levels
+        are the same numbers in every code system, so they have no owner.
+        """
+        owner = self.class_owner(units)
+        types = {unit.org_unit_type for unit in units.values()}
+        if self.root_unit is not None:
+            types.add(self.root_unit.org_unit_type_user_key)
+        levels = {unit.org_unit_level for unit in units.values()}
+        shared = shared_org_unit_types()
+        return {
+            MOClass(
+                facet="org_unit_type",
+                user_key=t,
+                owner=None if t in shared else owner,
+            )
+            for t in types
+        } | {
+            MOClass(facet="org_unit_level", user_key=level, owner=None)
+            for level in levels
+            if level is not None
+        }
+
     def org_unit_uuid(self, user_key: str) -> UUID:
         namespace = uuid5(NAMESPACE_URL, self.name)
         return uuid5(namespace, user_key)
@@ -106,6 +155,20 @@ class CodeSystem(BaseModel, frozen=True):
         if self.root_unit is None:
             return None
         return self.root_unit.uuid
+
+
+def shared_org_unit_types() -> set[str]:
+    """The types any code system may use, which the integration chooses.
+
+    They are the root units' types and that of "Historiske enheder". Without an
+    owner, which code system is ingested first does not decide their owner.
+    """
+    types = {HISTORIC_ORG_UNIT_TYPE}
+    for name in get_args(CodeSystemName):
+        root_unit = CodeSystem(name=name).root_unit
+        if root_unit is not None:
+            types.add(root_unit.org_unit_type_user_key)
+    return types
 
 
 class Settings(BaseSettings):

@@ -11,6 +11,7 @@ from pytest import MonkeyPatch
 from mo_arbor.code_system_file import Rows
 from mo_arbor.config import CodeSystem
 from mo_arbor.config import CodeSystemName
+from mo_arbor.config import MOClass
 from mo_arbor.config import Settings
 from mo_arbor.sor import SorRows
 from tests.helpers import file
@@ -41,6 +42,60 @@ def test_unit_name() -> None:
     assert sor.unit_name(units["R"]) == "SOR"
     assert sor.unit_name(units["C"]) == "Afd"
     assert okosted.unit_name(units["R"]) == "Region"
+
+
+def test_sor_classes() -> None:
+    """SOR's types are owned by its root, except those any code system uses."""
+    sor = CodeSystem(name="sor")
+    units = Rows.parse(
+        file(
+            row(
+                "R",
+                org_unit_type="region",
+                org_unit_level="1",
+                validity_from="1990-01-01",
+            ),
+            row("C", parent="R", org_unit_type="klinisk enhed", org_unit_level="2"),
+            # Closed before its parent existed, so under Historiske enheder
+            row("H", parent="C", validity_from="2000-01-01", validity_to="2001-01-01"),
+        )
+    )
+    owner = sor.org_unit_uuid("R")
+    assert sor.classes(units) == {
+        MOClass(facet="org_unit_type", user_key="region", owner=None),
+        MOClass(facet="org_unit_type", user_key="Ukendt", owner=None),
+        MOClass(facet="org_unit_type", user_key="klinisk enhed", owner=owner),
+        MOClass(facet="org_unit_level", user_key="1", owner=None),
+        MOClass(facet="org_unit_level", user_key="2", owner=None),
+        MOClass(facet="org_unit_level", user_key="N1", owner=None),
+    }
+
+
+def test_okosted_classes() -> None:
+    """Økosted's types are owned by its root unit, whose type is also needed."""
+    okosted = CodeSystem(name="okosted")
+    assert okosted.root_unit is not None
+    units = Rows.parse(
+        file(
+            row("A", org_unit_type="juridisk enhed", org_unit_level="1"),
+            row("B", org_unit_type="juridisk enhed", org_unit_level="1"),
+        )
+    )
+    assert okosted.classes(units) == {
+        MOClass(facet="org_unit_type", user_key="region", owner=None),
+        MOClass(
+            facet="org_unit_type",
+            user_key="juridisk enhed",
+            owner=okosted.root_unit.uuid,
+        ),
+        MOClass(facet="org_unit_level", user_key="1", owner=None),
+    }
+
+
+def test_class_owner_with_several_roots() -> None:
+    """Without a root unit, several roots have no single top unit."""
+    sor = CodeSystem(name="sor")
+    assert sor.class_owner(Rows.parse(file(row("A"), row("B")))) is None
 
 
 def test_unknown_code_system() -> None:
