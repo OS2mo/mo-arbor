@@ -51,7 +51,7 @@ async def values_from_dump(
 ) -> Values:
     return Values(
         user_key=dump_unit.user_key,
-        name=dump_unit.name,
+        name=code_system.unit_name(dump_unit),
         parent=code_system.parent_uuid(dump_unit),
         org_unit_type=await get_class(mo, "org_unit_type", dump_unit.org_unit_type),
         org_unit_level=await get_class(mo, "org_unit_level", dump_unit.org_unit_level),

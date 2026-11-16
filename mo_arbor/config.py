@@ -73,6 +73,28 @@ class CodeSystem(BaseModel, frozen=True):
             case _:  # pragma: no cover
                 assert_never(self.name)
 
+    @property
+    def root_name(self) -> str | None:
+        """The name in MO of the dumps' root, or None to keep the dumps' names.
+
+        SOR's dumps have a single root, which is called SOR in MO, whatever the
+        supplier names it. Økosted's roots are its legal entities, which keep
+        their names under the Økosted root unit.
+        """
+        match self.name:
+            case "sor":
+                return "SOR"
+            case "okosted":
+                return None
+            case _:  # pragma: no cover
+                assert_never(self.name)
+
+    def unit_name(self, unit: Unit) -> str:
+        """The name of a unit in MO."""
+        if unit.parent is None and self.root_name is not None:
+            return self.root_name
+        return unit.name
+
     def org_unit_uuid(self, user_key: str) -> UUID:
         namespace = uuid5(NAMESPACE_URL, self.name)
         return uuid5(namespace, user_key)
