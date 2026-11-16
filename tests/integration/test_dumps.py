@@ -12,8 +12,6 @@ from tests.helpers import UploadFile
 from tests.helpers import file
 from tests.helpers import row
 
-PATTERN = "region_sor_%Y%m%d_%H%M%S.csv"
-OTHER_PATTERN = "region_other_%Y%m%d_%H%M%S.csv"
 VALID = file(row("R"))
 VALID_WITH_CHILD = file(row("R"), row("C", parent="R"))
 # The same code twice
@@ -38,21 +36,21 @@ async def test_newest_file_name(
     await upload_file("region_other_20260502_000000.csv", "")
     await upload_file("sor_report.csv", "")
 
-    file_name = await DumpStore(PATTERN).newest_file_name(graphql_client)
+    file_name = await DumpStore("sor").newest_file_name(graphql_client)
     assert file_name == MAY_1_EVENING
 
 
 @pytest.mark.integration_test
 async def test_newest_file_name_without_dumps(graphql_client: GraphQLClient) -> None:
     with pytest.raises(DumpNotFound):
-        await DumpStore(PATTERN).newest_file_name(graphql_client)
+        await DumpStore("sor").newest_file_name(graphql_client)
 
 
 @pytest.mark.integration_test
 async def test_load(graphql_client: GraphQLClient, upload_file: UploadFile) -> None:
     await upload_file(APRIL_30, VALID)
 
-    dump = await DumpStore(PATTERN).load(graphql_client, APRIL_30)
+    dump = await DumpStore("sor").load(graphql_client, APRIL_30)
 
     assert dump.file_name == APRIL_30
     assert dump.date == date(2026, 4, 30)
@@ -64,7 +62,7 @@ async def test_newest(graphql_client: GraphQLClient, upload_file: UploadFile) ->
     await upload_file(MAY_1_MORNING, VALID_WITH_CHILD)
     await upload_file(APRIL_30, VALID)
 
-    dump = await DumpStore(PATTERN).newest(graphql_client)
+    dump = await DumpStore("sor").newest(graphql_client)
 
     assert dump.file_name == MAY_1_MORNING
     assert dump.units.keys() == {"R", "C"}
@@ -73,16 +71,16 @@ async def test_newest(graphql_client: GraphQLClient, upload_file: UploadFile) ->
 @pytest.mark.integration_test
 async def test_load_missing_file(graphql_client: GraphQLClient) -> None:
     with pytest.raises(DumpNotFound):
-        await DumpStore(PATTERN).load(graphql_client, APRIL_30)
+        await DumpStore("sor").load(graphql_client, APRIL_30)
 
 
 @pytest.mark.integration_test
-async def test_load_name_not_matching_pattern(
+async def test_load_file_that_is_not_a_dump(
     graphql_client: GraphQLClient, upload_file: UploadFile
 ) -> None:
     await upload_file("sor_report.csv", VALID)
     with pytest.raises(DumpNotFound):
-        await DumpStore(PATTERN).load(graphql_client, "sor_report.csv")
+        await DumpStore("sor").load(graphql_client, "sor_report.csv")
 
 
 @pytest.mark.integration_test
@@ -91,7 +89,7 @@ async def test_load_invalid_file(
 ) -> None:
     await upload_file(APRIL_30, INVALID)
     with pytest.raises(InvalidFile):
-        await DumpStore(PATTERN).load(graphql_client, APRIL_30)
+        await DumpStore("sor").load(graphql_client, APRIL_30)
 
 
 @pytest.mark.integration_test
@@ -99,7 +97,7 @@ async def test_load_is_cached(
     graphql_client: GraphQLClient, upload_file: UploadFile
 ) -> None:
     """Every event reads the newest dump; don't download it for each."""
-    store = DumpStore(PATTERN)
+    store = DumpStore("sor")
     await upload_file(APRIL_30, VALID)
     await store.load(graphql_client, APRIL_30)
 
@@ -114,8 +112,8 @@ async def test_cache_is_per_code_system(
     graphql_client: GraphQLClient, upload_file: UploadFile
 ) -> None:
     """Loading another code system's dumps does not push this one's out."""
-    store = DumpStore(PATTERN)
-    other = DumpStore(OTHER_PATTERN)
+    store = DumpStore("sor")
+    other = DumpStore("other")
     await upload_file(APRIL_30, VALID)
     await store.load(graphql_client, APRIL_30)
 
@@ -135,7 +133,7 @@ async def test_invalid_file_is_not_cached(
     graphql_client: GraphQLClient, upload_file: UploadFile
 ) -> None:
     """The supplier fixes a broken dump by uploading it again."""
-    store = DumpStore(PATTERN)
+    store = DumpStore("sor")
     await upload_file(APRIL_30, INVALID)
     with pytest.raises(InvalidFile):
         await store.load(graphql_client, APRIL_30)

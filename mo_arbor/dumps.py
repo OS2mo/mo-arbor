@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: MPL-2.0
 """Code system files in MO's file store.
 
-The supplier uploads the files to the EXPORTS file store, with the time of the
-dump in the file name.
+The supplier uploads the files to the EXPORTS file store, with the code
+system's name and the time of the dump at the end of the file name.
 """
 
 import base64
+import re
 from datetime import date
 from datetime import datetime
 
@@ -46,10 +47,18 @@ def decode(base64_contents: str) -> str:
 
 
 class DumpStore:
-    """Finds, loads and parses the dumps of a code system in the file store."""
+    """Finds, loads and parses the dumps of a code system in the file store.
 
-    def __init__(self, pattern: str, rows_model: type[Rows] = Rows) -> None:
-        self.pattern = pattern
+    A dump's file name ends in the code system's name and the time of the
+    dump, after any prefix, such as the customer's name, e.g.
+    customer_sor_20261016_094303.csv.
+    """
+
+    def __init__(self, code_system: str, rows_model: type[Rows] = Rows) -> None:
+        self.code_system = code_system
+        self.pattern = re.compile(
+            rf"(?:.*_)?{re.escape(code_system)}_(\d{{8}}_\d{{6}})\.csv"
+        )
         self.rows_model = rows_model
         # Each event reads the newest dump, and ingest also the previous one.
         # Errors are not cached, so a fixed dump uploaded again is read again.
@@ -59,9 +68,12 @@ class DumpStore:
 
     def dump_time(self, file_name: str) -> datetime | None:
         """The time of the dump in a file name, or None if it is not a dump."""
+        match = self.pattern.fullmatch(file_name)
+        if match is None:
+            return None
         try:
             # File names have no time zone
-            return datetime.strptime(file_name, self.pattern)
+            return datetime.strptime(match[1], "%Y%m%d_%H%M%S")
         except ValueError:
             return None
 
@@ -78,7 +90,7 @@ class DumpStore:
             if time is not None:
                 dumps.append((time, file.file_name))
         if not dumps:
-            raise DumpNotFound(f"no dumps match {self.pattern}")
+            raise DumpNotFound(f"no dumps of {self.code_system}")
         _, file_name = max(dumps)
         return file_name
 
@@ -98,11 +110,10 @@ class DumpStore:
             DumpNotFound: If there is no dump with this name.
             InvalidFile: If the dump is not UTF-8, or fails validation.
         """
-        # The dump's date is in its name. A name ingested before file_pattern
-        # changed may not match it.
+        # The dump's date is in its name
         time = self.dump_time(file_name)
         if time is None:
-            raise DumpNotFound(f"{file_name} does not match {self.pattern}")
+            raise DumpNotFound(f"{file_name} is not a dump of {self.code_system}")
         files = await mo.read_file(FileStore.EXPORTS, file_name)
         file = one(
             files.objects,
