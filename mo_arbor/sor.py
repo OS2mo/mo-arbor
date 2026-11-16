@@ -44,6 +44,8 @@ class SorRow(Row):
 
 class SorRows(Rows):
     __root__: tuple[SorRow, ...]
+    # single_root checks that there is one, and SOR stays one tree in MO
+    historic_under_root = True
 
     @root_validator(skip_on_failure=True)
     def single_root(cls, values: dict[str, Any]) -> dict[str, Any]:

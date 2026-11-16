@@ -35,6 +35,11 @@ as described in the supplier's spec
 - Every row must have a `type` and a `niveau`.
 - A unit is valid from `gyldig_fra` to `gyldig_til`, cut to its parent's
   validity. A unit that is gone from the dump is terminated.
+- A dump has only each unit's current parent, so a unit that closed before
+  its parent started is never valid while its parent is. It goes under
+  "Historiske enheder" instead, with its children. The integration adds that
+  unit under SOR's root, or at the top of Økosted, under its root unit. It is
+  of type `Ukendt`, which must be a class in MO, and has no level.
 - A file with other columns is rejected.
 - SOR codes must be valid SOR IDs, which catches codes damaged by Excel.
 

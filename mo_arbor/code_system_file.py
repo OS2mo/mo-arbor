@@ -14,8 +14,10 @@ from datetime import date
 from graphlib import CycleError
 from graphlib import TopologicalSorter
 from typing import Any
+from typing import ClassVar
 
 from more_itertools import duplicates_everseen
+from more_itertools import one
 from pydantic import BaseModel
 from pydantic import Extra
 from pydantic import Field
@@ -26,6 +28,11 @@ from pydantic import validator
 
 class InvalidFile(Exception):
     pass
+
+
+# The user_key of the unit that holds the units their parent is never valid
+# with. Not a code in the files, so it cannot clash with one.
+HISTORIC_USER_KEY = "historiske_enheder"
 
 
 class Row(BaseModel, frozen=True, anystr_strip_whitespace=True, extra=Extra.forbid):
@@ -76,7 +83,8 @@ class Unit(BaseModel, frozen=True, copy_on_model_validation="none"):
     parent: "Unit | None"
     name: str
     org_unit_type: str
-    org_unit_level: str
+    # None for the historic units' unit, which is not in the file
+    org_unit_level: str | None
     validity_from: date
     # The last valid day, None if open-ended
     validity_to: date | None
@@ -107,12 +115,33 @@ class Unit(BaseModel, frozen=True, copy_on_model_validation="none"):
             return self.parent.end
         return min(self.validity_to, self.parent.end)
 
+    @property
+    def is_valid(self) -> bool:
+        """Whether it is valid on any day while its parent is."""
+        return self.end is None or self.end >= self.start
+
     @root_validator(skip_on_failure=True)
     def valid_while_parent_is(cls, values: dict[str, Any]) -> dict[str, Any]:
         unit = cls.construct(**values)
-        if unit.end is not None and unit.end < unit.start:
+        if not unit.is_valid:
             raise ValueError(f"{unit.user_key}: not valid while its parent is")
         return values
+
+
+def historic_unit(parent: Unit | None) -> Unit:
+    """The unit for units their parent is never valid with.
+
+    Valid from before any unit, cut to its parent's validity.
+    """
+    return Unit(
+        user_key=HISTORIC_USER_KEY,
+        parent=parent,
+        name="Historiske enheder",
+        org_unit_type="Ukendt",
+        org_unit_level=None,
+        validity_from=date(1900, 1, 1),
+        validity_to=None,
+    )
 
 
 class Rows(BaseModel):
@@ -124,6 +153,9 @@ class Rows(BaseModel):
     """
 
     __root__: tuple[Row, ...]
+    # Whether "Historiske enheder" goes under the single root, rather than at
+    # the top beside the roots
+    historic_under_root: ClassVar[bool] = False
 
     @root_validator(skip_on_failure=True)
     def has_rows(cls, values: dict[str, Any]) -> dict[str, Any]:
@@ -169,8 +201,17 @@ class Rows(BaseModel):
         return values
 
     def to_units(self) -> dict[str, Unit]:
+        """The units of the rows, as trees under their roots.
+
+        A file has only each unit's current parent, but also units that closed
+        before it existed. Such a unit is never valid while its parent is, so
+        it goes under "Historiske enheder" instead, which is at the top, or
+        under the single root if `historic_under_root`. Its children stay
+        under it.
+        """
         rows = {r.user_key: r for r in self.__root__}
         graph = {key: [r.parent_user_key] for key, r in rows.items()}
+        roots = [r.user_key for r in self.__root__ if r.parent_user_key is None]
         units: dict[str, Unit] = {}
         # Each parent before its children, so its unit exists
         for key in TopologicalSorter(graph).static_order():
@@ -178,16 +219,20 @@ class Rows(BaseModel):
                 # The roots' parent
                 continue
             row = rows[key]
-            parent = row.parent_user_key
-            units[key] = Unit(
-                user_key=row.user_key,
-                parent=None if parent is None else units[parent],
-                name=row.name,
-                org_unit_type=row.org_unit_type,
-                org_unit_level=row.org_unit_level,
-                validity_from=row.validity_from,
-                validity_to=row.validity_to,
-            )
+            parent = None
+            if row.parent_user_key is not None:
+                parent = units[row.parent_user_key]
+            # The row's fields, but with the parent's unit, not its user_key
+            fields = row.dict(exclude={"parent_user_key"})
+            # Not validated, only to see if it is valid under its parent
+            if not Unit.construct(**fields, parent=parent).is_valid:
+                if HISTORIC_USER_KEY not in units:
+                    historic_parent = None
+                    if self.historic_under_root:
+                        historic_parent = units[one(roots)]
+                    units[HISTORIC_USER_KEY] = historic_unit(historic_parent)
+                parent = units[HISTORIC_USER_KEY]
+            units[key] = Unit(**fields, parent=parent)
         return units
 
     @classmethod
