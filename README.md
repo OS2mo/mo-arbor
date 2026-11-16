@@ -79,10 +79,11 @@ A unit's UUID is derived from its code and the code system's `name`, so the
 same code in two code systems is two units. Never rename a code system, as
 MO's existing units would become unreachable.
 
-SOR's dump has a single root, which is at the top of MO. Økosted's dumps have
-several roots, its legal entities, which go under a root unit the integration
-makes before it sends the first events: "Økosted", of type `region` and from
-1900-01-01. The `region` class must exist in MO, or Økosted is not ingested.
+SOR's dump has a single root, which is at the top of MO and is called "SOR"
+there, whatever the dump names it. A SOR dump with several roots is invalid.
+Økosted's dumps have several roots, its legal entities, which go under a root
+unit the integration makes before it sends the first events: "Økosted", of
+type `region` and from 1900-01-01. The `region` class must exist in MO, or Økosted is not ingested.
 
 The type and level are the classes in the `org_unit_type` and
 `org_unit_level` facets whose user_key is the row's `type` and `niveau`. If a

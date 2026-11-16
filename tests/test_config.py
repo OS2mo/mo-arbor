@@ -33,6 +33,16 @@ def test_parent() -> None:
     assert sor.parent_uuid(units["R"]) is None
 
 
+def test_unit_name() -> None:
+    """SOR's root is called SOR, and Økosted's roots keep their names."""
+    sor = CodeSystem(name="sor")
+    okosted = CodeSystem(name="okosted")
+    units = Rows.parse(file(row("R", name="Region"), row("C", parent="R", name="Afd")))
+    assert sor.unit_name(units["R"]) == "SOR"
+    assert sor.unit_name(units["C"]) == "Afd"
+    assert okosted.unit_name(units["R"]) == "Region"
+
+
 def test_unknown_code_system() -> None:
     """A misspelt name must not skip the validation of its codes."""
     with pytest.raises(ValidationError) as exc_info:

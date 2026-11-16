@@ -272,6 +272,7 @@ def test_invalid_file_is_rejected(text: str, error: str) -> None:
 # Made-up codes in the shape of real ones, with valid check digits
 SOR_ROOT = "1001000016005"
 SOR_CHILD = "100001000016006"
+SOR_SIBLING = "1000001000016004"
 
 
 def test_sor_codes() -> None:
@@ -293,6 +294,11 @@ def test_sor_codes() -> None:
             file(row(SOR_ROOT), row(SOR_CHILD, parent="1001000016006")),
             "__root__ -> 1 -> kode_parent\n  invalid SOR ID check digit",
             id="parent",
+        ),
+        pytest.param(
+            file(row(SOR_ROOT), row(SOR_SIBLING)),
+            f"__root__\n  several roots: {SOR_SIBLING}, {SOR_ROOT}",
+            id="several-roots",
         ),
     ],
 )
