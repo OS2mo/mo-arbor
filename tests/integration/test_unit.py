@@ -159,7 +159,8 @@ async def test_code_systems_are_separate_trees(
     r = await graphql_client.get_org_unit(sor.org_unit_uuid(ROOT))
     current = one(r.objects).current
     assert current is not None
-    assert current.name == "Root"
+    # Called SOR, whatever the dump names it
+    assert current.name == "SOR"
 
 
 @pytest.mark.integration_test
