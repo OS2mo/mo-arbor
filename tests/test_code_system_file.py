@@ -5,6 +5,7 @@ from itertools import permutations
 
 import pytest
 
+from mo_arbor.code_system_file import HISTORIC_USER_KEY
 from mo_arbor.code_system_file import InvalidFile
 from mo_arbor.code_system_file import Rows
 from mo_arbor.code_system_file import Unit
@@ -85,6 +86,52 @@ def test_start_is_clamped_to_parent_start() -> None:
     assert units[ROOT].start == date(2015, 7, 30)
     assert units[CHILD].start == date(2025, 1, 9)
     assert units[GRANDCHILD].start == date(2025, 1, 9)
+    # Valid under its parent once clamped, so it stays there
+    assert HISTORIC_USER_KEY not in units
+
+
+def test_unit_never_valid_under_parent_goes_under_historic_units() -> None:
+    """The grandchild closed before the child started, and keeps its child."""
+    text = file(
+        row(ROOT, validity_from="2010-01-01"),
+        row(CHILD, parent=ROOT, validity_from="2020-01-01"),
+        row(
+            GRANDCHILD,
+            parent=CHILD,
+            validity_from="2015-01-01",
+            validity_to="2019-12-31",
+        ),
+        row("GG", parent=GRANDCHILD, validity_from="2016-01-01"),
+    )
+    units = Rows.parse(text)
+
+    historic = units[HISTORIC_USER_KEY]
+    assert historic.parent is units[ROOT]
+    assert historic.name == "Historiske enheder"
+    assert historic.org_unit_type == "Ukendt"
+    assert historic.org_unit_level is None
+    assert historic.start == date(2010, 1, 1)
+    assert historic.end is None
+
+    assert units[GRANDCHILD].parent is historic
+    assert units[GRANDCHILD].start == date(2015, 1, 1)
+    assert units[GRANDCHILD].end == date(2019, 12, 31)
+    assert units["GG"].parent is units[GRANDCHILD]
+
+
+def test_historic_units_with_several_roots() -> None:
+    """At the top, so under the code system's root unit, and not cut."""
+    text = file(
+        row("R1"),
+        row("R2", validity_from="2020-01-01"),
+        row(CHILD, parent="R2", validity_from="2015-01-01", validity_to="2019-12-31"),
+    )
+    units = Rows.parse(text)
+
+    historic = units[HISTORIC_USER_KEY]
+    assert historic.parent is None
+    assert historic.start == date(1900, 1, 1)
+    assert units[CHILD].parent is historic
 
 
 def test_start_after_parent_is_kept() -> None:
@@ -207,8 +254,10 @@ def test_values_are_stripped() -> None:
                 row(ROOT, validity_to="2020-12-31"),
                 row(CHILD, parent=ROOT, validity_from="2021-01-01"),
             ),
+            # Under the root itself, so Historiske enheder, which is under the
+            # root too, does not help
             f"{CHILD}: not valid while its parent is",
-            id="starts-after-parent-ends",
+            id="starts-after-root-ends",
         ),
         pytest.param(
             file(
@@ -221,7 +270,7 @@ def test_values_are_stripped() -> None:
                 ),
             ),
             f"{CHILD}: not valid while its parent is",
-            id="ends-before-parent-starts",
+            id="ends-before-root-starts",
         ),
         pytest.param(
             # The reader fills the missing columns of a short row with None

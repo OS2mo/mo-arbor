@@ -110,6 +110,12 @@ async def region(graphql_client: GraphQLClient, org_unit_type_facet: UUID) -> UU
 
 
 @pytest.fixture
+async def ukendt(graphql_client: GraphQLClient, org_unit_type_facet: UUID) -> UUID:
+    """Historiske enheder's."""
+    return await _create_class(graphql_client, org_unit_type_facet, "Ukendt")
+
+
+@pytest.fixture
 async def klinisk_enhed(
     graphql_client: GraphQLClient, org_unit_type_facet: UUID
 ) -> UUID:
