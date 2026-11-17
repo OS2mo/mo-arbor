@@ -5,8 +5,11 @@ from uuid import UUID
 from uuid import uuid4
 
 import pytest
+from pytest import MonkeyPatch
 
 from mo_arbor.config import CodeSystem
+from mo_arbor.config import ReportSettings
+from mo_arbor.config import Settings
 from mo_arbor.dumps import DumpStore
 from mo_arbor.report import Chain
 from mo_arbor.report import ReportUnit
@@ -83,3 +86,14 @@ def test_report_is_not_a_dump(name: str) -> None:
     file_name = report_file_name(code_system, datetime(2026, 11, 17, 12, 0, 0))
     assert file_name == f"{name}_relations_20261117_120000.csv"
     assert DumpStore(name).dump_time(file_name) is None
+
+
+@pytest.mark.usefixtures("minimal_valid_environmental_variables")
+def test_report_settings(monkeypatch: MonkeyPatch) -> None:
+    root_adm, root_8s = uuid4(), uuid4()
+    monkeypatch.setenv("CODE_SYSTEMS", '["sor"]')
+    assert Settings().report is None
+
+    monkeypatch.setenv("REPORT__ROOT_ADM", str(root_adm))
+    monkeypatch.setenv("REPORT__ROOT_8S", str(root_8s))
+    assert Settings().report == ReportSettings(root_adm=root_adm, root_8s=root_8s)

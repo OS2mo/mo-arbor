@@ -21,6 +21,8 @@ from ._testing__get_org_unit_history import (
 from ._testing__list_events import TestingListEvents
 from ._testing__list_events import TestingListEventsEvents
 from ._testing__list_events import TestingListEventsEventsObjects
+from ._testing__relate_units import TestingRelateUnits
+from ._testing__relate_units import TestingRelateUnitsRelatedUnitsUpdate
 from .async_base_client import AsyncBaseClient
 from .base_model import BaseModel
 from .client import GraphQLClient
@@ -207,6 +209,31 @@ from .list_org_units import ListOrgUnitsOrgUnitsObjectsValidities
 from .list_org_units import ListOrgUnitsOrgUnitsObjectsValiditiesParentResponse
 from .list_org_units import ListOrgUnitsOrgUnitsObjectsValiditiesValidity
 from .list_org_units import ListOrgUnitsOrgUnitsPageInfo
+from .list_related_units import ListRelatedUnits
+from .list_related_units import ListRelatedUnitsOrgUnits
+from .list_related_units import ListRelatedUnitsOrgUnitsObjects
+from .list_related_units import ListRelatedUnitsOrgUnitsObjectsCurrent
+from .list_related_units import (
+    ListRelatedUnitsOrgUnitsObjectsCurrentRelatedUnitsResponse,
+)
+from .list_related_units import (
+    ListRelatedUnitsOrgUnitsObjectsCurrentRelatedUnitsResponseObjects,
+)
+from .list_related_units import (
+    ListRelatedUnitsOrgUnitsObjectsCurrentRelatedUnitsResponseObjectsCurrent,
+)
+from .list_related_units import (
+    ListRelatedUnitsOrgUnitsObjectsCurrentRelatedUnitsResponseObjectsCurrentOrgUnitsResponse,
+)
+from .list_related_units import (
+    ListRelatedUnitsOrgUnitsObjectsCurrentRelatedUnitsResponseObjectsCurrentOrgUnitsResponseObjects,
+)
+from .list_related_units import ListRelatedUnitsOrgUnitsPageInfo
+from .list_report_units import ListReportUnits
+from .list_report_units import ListReportUnitsOrgUnits
+from .list_report_units import ListReportUnitsOrgUnitsObjects
+from .list_report_units import ListReportUnitsOrgUnitsObjectsCurrent
+from .list_report_units import ListReportUnitsOrgUnitsPageInfo
 from .read_file import ReadFile
 from .read_file import ReadFileFiles
 from .read_file import ReadFileFilesObjects
@@ -334,6 +361,21 @@ __all__ = [
     "ListOrgUnitsOrgUnitsObjectsValiditiesParentResponse",
     "ListOrgUnitsOrgUnitsObjectsValiditiesValidity",
     "ListOrgUnitsOrgUnitsPageInfo",
+    "ListRelatedUnits",
+    "ListRelatedUnitsOrgUnits",
+    "ListRelatedUnitsOrgUnitsObjects",
+    "ListRelatedUnitsOrgUnitsObjectsCurrent",
+    "ListRelatedUnitsOrgUnitsObjectsCurrentRelatedUnitsResponse",
+    "ListRelatedUnitsOrgUnitsObjectsCurrentRelatedUnitsResponseObjects",
+    "ListRelatedUnitsOrgUnitsObjectsCurrentRelatedUnitsResponseObjectsCurrent",
+    "ListRelatedUnitsOrgUnitsObjectsCurrentRelatedUnitsResponseObjectsCurrentOrgUnitsResponse",
+    "ListRelatedUnitsOrgUnitsObjectsCurrentRelatedUnitsResponseObjectsCurrentOrgUnitsResponseObjects",
+    "ListRelatedUnitsOrgUnitsPageInfo",
+    "ListReportUnits",
+    "ListReportUnitsOrgUnits",
+    "ListReportUnitsOrgUnitsObjects",
+    "ListReportUnitsOrgUnitsObjectsCurrent",
+    "ListReportUnitsOrgUnitsPageInfo",
     "ListenerCreateInput",
     "ListenerDeleteInput",
     "ListenerFilter",
@@ -417,6 +459,8 @@ __all__ = [
     "TestingListEvents",
     "TestingListEventsEvents",
     "TestingListEventsEventsObjects",
+    "TestingRelateUnits",
+    "TestingRelateUnitsRelatedUnitsUpdate",
     "UpdateOrgUnit",
     "UpdateOrgUnitOrgUnitUpdate",
     "UuidsBoundClassFilter",

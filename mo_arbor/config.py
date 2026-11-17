@@ -132,6 +132,15 @@ class CodeSystem(BaseModel, frozen=True):
         return self.root_unit.uuid
 
 
+class ReportSettings(BaseModel, frozen=True):
+    """The roots in MO of the trees the report links the code systems to."""
+
+    # The administrative units, which the code systems' units are related to
+    root_adm: UUID
+    # 8S's units, which the administrative units are related to
+    root_8s: UUID
+
+
 class Settings(BaseSettings):
     class Config:
         frozen = True
@@ -146,3 +155,7 @@ class Settings(BaseSettings):
     # Refuse to ingest a dump that removes more units than this, unless forced.
     # Protects against a truncated dump terminating half the tree.
     max_terminations: int = 10
+
+    # The report of the code systems' links to 8S, e.g.
+    # REPORT__ROOT_ADM=<uuid> and REPORT__ROOT_8S=<uuid>. None to not report.
+    report: ReportSettings | None = None

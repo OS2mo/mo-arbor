@@ -51,3 +51,9 @@ query _Testing_GetOrgUnitHistory($uuid: UUID!) {
     }
   }
 }
+
+mutation _Testing_RelateUnits($input: RelatedUnitsUpdateInput!) {
+  related_units_update(input: $input) {
+    uuid
+  }
+}
