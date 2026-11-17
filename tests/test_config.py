@@ -43,6 +43,21 @@ def test_unit_name() -> None:
     assert okosted.unit_name(units["R"]) == "Region"
 
 
+def test_okosted_top_is_its_root_unit() -> None:
+    """Økosted's roots, its legal entities, go under its root unit."""
+    okosted = CodeSystem(name="okosted")
+    units = Rows.parse(file(row("A"), row("B"), row("C", parent="A")))
+    assert okosted.root_unit is not None
+    assert okosted.top_uuids(units) == [okosted.root_unit.uuid]
+
+
+def test_sor_top_is_its_root() -> None:
+    """SOR has no root unit, so its dump's root is at the top."""
+    sor = CodeSystem(name="sor")
+    units = Rows.parse(file(row("R"), row("C", parent="R")))
+    assert sor.top_uuids(units) == [sor.org_unit_uuid("R")]
+
+
 def test_unknown_code_system() -> None:
     """A misspelt name must not skip the validation of its codes."""
     with pytest.raises(ValidationError) as exc_info:

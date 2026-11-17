@@ -95,6 +95,19 @@ class CodeSystem(BaseModel, frozen=True):
             return self.root_name
         return unit.name
 
+    def top_uuids(self, units: dict[str, Unit]) -> list[UUID]:
+        """The UUIDs in MO of the units at the top of the code system's tree.
+
+        That is its root unit, or a dump's roots if it has none.
+        """
+        if self.root_unit is not None:
+            return [self.root_unit.uuid]
+        return [
+            self.org_unit_uuid(user_key)
+            for user_key, unit in units.items()
+            if unit.parent is None
+        ]
+
     def org_unit_uuid(self, user_key: str) -> UUID:
         namespace = uuid5(NAMESPACE_URL, self.name)
         return uuid5(namespace, user_key)
