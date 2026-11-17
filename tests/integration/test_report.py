@@ -38,13 +38,24 @@ HEADER = (
 )
 
 
-async def report(test_client: AsyncClient, dry_run: bool = False) -> Reported:
+# The report of the trees fixture
+REPORT = (
+    HEADER
+    # Sorted by code as text, so A's comes first. The systems are named after
+    # the roots.
+    + '"SOR";"100001000016006";"Afdeling A";'
+    '"Adm-træet";"ADM1";"Adm 1";"Target-træet";"S1";"Target 1"\r\n'
+    + '"SOR";"1001000016005";"SOR";"";"";"";"";"";""\r\n'
+)
+
+
+async def report(test_client: AsyncClient, dry_run: bool = False) -> Reported | None:
     """Report SOR only."""
     r = await test_client.post(
         "/report", params={"code_system": "sor", "dry_run": dry_run}
     )
     r.raise_for_status()
-    return parse_obj_as(dict[str, Reported], r.json())["sor"]
+    return parse_obj_as(dict[str, Reported | None], r.json())["sor"]
 
 
 async def report_files(graphql_client: GraphQLClient) -> set[str]:
@@ -102,22 +113,39 @@ async def trees(
 @pytest.mark.envvar(REPORT_ENV)
 @pytest.mark.usefixtures("trees")
 async def test_report(test_client: AsyncClient, graphql_client: GraphQLClient) -> None:
-    """A row per chain."""
+    """A row per chain, uploaded once until something changes."""
     reported = await report(test_client)
 
+    assert reported is not None
     assert reported.file_name.startswith("sor_relations_")
     assert reported.rows == 2
-    assert (
-        await read(graphql_client, reported.file_name)
-        == (
-            HEADER
-            # Sorted by code as text, so A's comes first. The systems are named
-            # after the roots.
-            + '"SOR";"100001000016006";"Afdeling A";'
-            '"Adm-træet";"ADM1";"Adm 1";"Target-træet";"S1";"Target 1"\r\n'
-            + '"SOR";"1001000016005";"SOR";"";"";"";"";"";""\r\n'
-        )
-    )
+    assert await read(graphql_client, reported.file_name) == REPORT
+    # Nothing changed, so nothing is uploaded
+    assert await report(test_client) is None
+    assert await report_files(graphql_client) == {reported.file_name}
+
+
+@pytest.mark.integration_test
+@pytest.mark.envvar(REPORT_ENV)
+@pytest.mark.usefixtures("trees")
+async def test_compared_with_last_written(
+    test_client: AsyncClient, graphql_client: GraphQLClient, upload_file: UploadFile
+) -> None:
+    """Not the newest name, as the time in the name repeats an hour in October."""
+    # The same report under the newest name, then another under an older name
+    newest_name = "sor_relations_20991231_235959.csv"
+    older_name = "sor_relations_20000101_000000.csv"
+    await upload_file(newest_name, REPORT)
+    await upload_file(older_name, "Another report")
+
+    reported = await report(test_client)
+
+    assert reported is not None
+    assert await report_files(graphql_client) == {
+        newest_name,
+        older_name,
+        reported.file_name,
+    }
 
 
 @pytest.mark.integration_test
@@ -126,8 +154,11 @@ async def test_report(test_client: AsyncClient, graphql_client: GraphQLClient) -
 async def test_dry_run(test_client: AsyncClient, graphql_client: GraphQLClient) -> None:
     reported = await report(test_client, dry_run=True)
 
+    assert reported is not None
     assert reported.rows == 2
     assert await report_files(graphql_client) == set()
+    # Nothing uploaded to compare with, so a real run uploads it
+    assert await report(test_client) is not None
 
 
 @pytest.mark.integration_test

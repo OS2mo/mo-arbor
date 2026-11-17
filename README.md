@@ -125,6 +125,10 @@ SOR's root is read from its newest dump, so a code system without a valid
 dump is not reported; the others are, but the request fails. The same goes
 if the Adm or target root is not an active unit in MO.
 
+A report the same as the code system's last one in the file store is not
+uploaded, so a new file means something changed. The integration keeps no
+record of its reports; it compares with the last one MO wrote.
+
 `?dry_run=true` shows what would be uploaded without uploading it, and
 `?code_system=<name>` reports only that code system.
 
