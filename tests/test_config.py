@@ -22,6 +22,11 @@ def test_rows_model_by_name(name: CodeSystemName, rows_model: type[Rows]) -> Non
     assert CodeSystem(name=name).rows_model is rows_model
 
 
+@pytest.mark.parametrize("name,title", [("sor", "SOR"), ("okosted", "Økosted")])
+def test_title(name: CodeSystemName, title: str) -> None:
+    assert CodeSystem(name=name).title == title
+
+
 def test_parent() -> None:
     """Økosted's roots go under its root unit, and SOR's are at the top."""
     sor = CodeSystem(name="sor")
