@@ -108,15 +108,9 @@ async def units_in_mo(
     They are the units under the code system's root unit, or under the dump's
     roots if it has none.
     """
-    if code_system.root_unit is not None:
-        top_uuids = [code_system.root_unit.uuid]
-    else:
-        top_uuids = [
-            code_system.org_unit_uuid(user_key)
-            for user_key, unit in dump.units.items()
-            if unit.parent is None
-        ]
-    org_units = await org_units_in_trees(mo, top_uuids, mo_datetime(dump.date))
+    org_units = await org_units_in_trees(
+        mo, code_system.top_uuids(dump.units), mo_datetime(dump.date)
+    )
     return code_system_depths(code_system, org_units)
 
 
