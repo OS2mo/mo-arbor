@@ -6,6 +6,9 @@ import pytest
 from pytest import Item
 from pytest import MonkeyPatch
 
+from tests.helpers import ROOT_8S
+from tests.helpers import ROOT_ADM
+
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(items: list[Item]) -> None:
@@ -34,6 +37,8 @@ def integration_test_environment_variables(monkeypatch: MonkeyPatch) -> None:
         "CODE_SYSTEMS",
         json.dumps(["sor", "okosted"]),
     )
+    monkeypatch.setenv("REPORT__ROOT_ADM", str(ROOT_ADM))
+    monkeypatch.setenv("REPORT__ROOT_8S", str(ROOT_8S))
 
 
 @pytest.fixture
