@@ -89,6 +89,17 @@ class CodeSystem(BaseModel, frozen=True):
             case _:  # pragma: no cover
                 assert_never(self.name)
 
+    @property
+    def title(self) -> str:
+        """The code system's name for people, as in the report."""
+        match self.name:
+            case "sor":
+                return "SOR"
+            case "okosted":
+                return "Økosted"
+            case _:  # pragma: no cover
+                assert_never(self.name)
+
     def unit_name(self, unit: Unit) -> str:
         """The name of a unit in MO."""
         if unit.parent is None and self.root_name is not None:
