@@ -71,13 +71,7 @@ async def units_in_mo(
     root_unit_uuid = None
     if code_system.root_unit is not None:
         root_unit_uuid = code_system.root_unit.uuid
-        roots = [root_unit_uuid]
-    else:
-        roots = [
-            code_system.org_unit_uuid(user_key)
-            for user_key, unit in dump.units.items()
-            if unit.parent is None
-        ]
+    roots = code_system.top_uuids(dump.units)
     user_keys: dict[UUID, str] = {}
     parents: dict[UUID, UUID | None] = {}
     cursor = None
