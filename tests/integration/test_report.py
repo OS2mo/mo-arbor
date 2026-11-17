@@ -38,13 +38,13 @@ HEADER = (
 )
 
 
-async def report(test_client: AsyncClient, dry_run: bool = False) -> Reported:
+async def report(test_client: AsyncClient, dry_run: bool = False) -> Reported | None:
     """Report SOR only."""
     r = await test_client.post(
         "/report", params={"code_system": "sor", "dry_run": dry_run}
     )
     r.raise_for_status()
-    return parse_obj_as(dict[str, Reported], r.json())["sor"]
+    return parse_obj_as(dict[str, Reported | None], r.json())["sor"]
 
 
 async def report_files(graphql_client: GraphQLClient) -> set[str]:
@@ -102,9 +102,10 @@ async def trees(
 @pytest.mark.envvar(REPORT_ENV)
 @pytest.mark.usefixtures("trees")
 async def test_report(test_client: AsyncClient, graphql_client: GraphQLClient) -> None:
-    """A row per chain."""
+    """A row per chain, uploaded once until something changes."""
     reported = await report(test_client)
 
+    assert reported is not None
     assert reported.file_name.startswith("sor_relations_")
     assert reported.rows == 2
     assert await read(graphql_client, reported.file_name) == (
@@ -113,6 +114,9 @@ async def test_report(test_client: AsyncClient, graphql_client: GraphQLClient) -
         + '"SOR";"100001000016006";"Afdeling A";"ADM1";"Adm 1";"8S";"S1";"8S 1"\r\n'
         + '"SOR";"1001000016005";"SOR";"";"";"";"";""\r\n'
     )
+    # Nothing changed, so nothing is uploaded
+    assert await report(test_client) is None
+    assert await report_files(graphql_client) == {reported.file_name}
 
 
 @pytest.mark.integration_test
@@ -121,8 +125,11 @@ async def test_report(test_client: AsyncClient, graphql_client: GraphQLClient) -
 async def test_dry_run(test_client: AsyncClient, graphql_client: GraphQLClient) -> None:
     reported = await report(test_client, dry_run=True)
 
+    assert reported is not None
     assert reported.rows == 2
     assert await report_files(graphql_client) == set()
+    # Nor recorded, so a real run uploads it
+    assert await report(test_client) is not None
 
 
 @pytest.mark.integration_test

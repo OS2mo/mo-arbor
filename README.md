@@ -121,6 +121,10 @@ line endings. Every field is quoted, and a `"` in a field is written as `""`
 SOR's root is read from its newest dump, so a code system without a valid
 dump is not reported; the others are, but the request fails.
 
+A report the same as the code system's last one is not uploaded, so a new file
+means something changed. The last one is uploaded again if it is gone from
+the file store.
+
 `?dry_run=true` shows what would be uploaded without uploading it, and
 `?code_system=<name>` reports only that code system.
 
