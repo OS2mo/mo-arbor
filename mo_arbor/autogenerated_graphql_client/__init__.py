@@ -199,6 +199,10 @@ from .input_types import UuidsBoundITUserFilter
 from .input_types import UuidsBoundLeaveFilter
 from .input_types import UuidsBoundOrganisationUnitFilter
 from .input_types import ValidityInput
+from .list_classes import ListClasses
+from .list_classes import ListClassesClasses
+from .list_classes import ListClassesClassesObjects
+from .list_classes import ListClassesClassesObjectsValidities
 from .list_files import ListFiles
 from .list_files import ListFilesFiles
 from .list_files import ListFilesFilesObjects
@@ -351,6 +355,10 @@ __all__ = [
     "LeaveRegistrationFilter",
     "LeaveTerminateInput",
     "LeaveUpdateInput",
+    "ListClasses",
+    "ListClassesClasses",
+    "ListClassesClassesObjects",
+    "ListClassesClassesObjectsValidities",
     "ListFiles",
     "ListFilesFiles",
     "ListFilesFilesObjects",

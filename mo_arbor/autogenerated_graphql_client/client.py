@@ -37,6 +37,8 @@ from .input_types import OrganisationUnitCreateInput
 from .input_types import OrganisationUnitTerminateInput
 from .input_types import OrganisationUnitUpdateInput
 from .input_types import RelatedUnitsUpdateInput
+from .list_classes import ListClasses
+from .list_classes import ListClassesClasses
 from .list_files import ListFiles
 from .list_files import ListFilesFiles
 from .list_org_units import ListOrgUnits
@@ -106,6 +108,25 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return GetClass.parse_obj(data).classes
+
+    async def list_classes(
+        self, facet: str, user_keys: list[str]
+    ) -> ListClassesClasses:
+        query = gql("""
+            query ListClasses($facet: String!, $user_keys: [String!]!) {
+              classes(filter: {facet: {user_keys: [$facet]}, user_keys: $user_keys}) {
+                objects {
+                  validities {
+                    user_key
+                  }
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"facet": facet, "user_keys": user_keys}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return ListClasses.parse_obj(data).classes
 
     async def create_org_unit(
         self, input: OrganisationUnitCreateInput

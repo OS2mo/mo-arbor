@@ -35,6 +35,16 @@ query GetClass($facet: String!, $user_key: String!) {
   }
 }
 
+query ListClasses($facet: String!, $user_keys: [String!]!) {
+  classes(filter: {facet: {user_keys: [$facet]}, user_keys: $user_keys}) {
+    objects {
+      validities {
+        user_key
+      }
+    }
+  }
+}
+
 mutation CreateOrgUnit($input: OrganisationUnitCreateInput!) {
   org_unit_create(input: $input) {
     uuid
