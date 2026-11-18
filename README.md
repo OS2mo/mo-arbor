@@ -63,6 +63,10 @@ Ingest skips a code system and logs an error when:
 The other code systems are still ingested, but the request fails, so the cron
 job fails.
 
+A run where nothing failed sets the `dipex_last_success_timestamp` metric, as
+in other integrations, so an alert can tell when ingest stopped working. A dry
+run does not.
+
 `?dry_run=true` shows what would be sent without sending it, and
 `?code_system=<name>` ingests only that code system.
 
