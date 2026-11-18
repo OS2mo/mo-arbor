@@ -59,6 +59,8 @@ Ingest skips a code system and logs an error when:
 - the newest dump is invalid,
 - it would terminate more than `MAX_TERMINATIONS` units, 10 by default
   (override with `?force=true`).
+- a type or level in the newest dump is not a class in MO. The error names
+  every missing class, and so does a dry run, so they can be made first.
 
 The other code systems are still ingested, but the request fails, so the cron
 job fails.
@@ -95,8 +97,10 @@ unit the integration makes before it sends the first events: "Økosted", of
 type `region` and from 1900-01-01. The `region` class must exist in MO, or Økosted is not ingested.
 
 The type and level are the classes in the `org_unit_type` and
-`org_unit_level` facets whose user_key is the row's `type` and `niveau`. If a
-class does not exist, the event fails and is retried until someone creates it.
+`org_unit_level` facets whose user_key is the row's `type` and `niveau`.
+Ingest checks that they all exist, so an ingested dump is one MO can follow.
+Should a class be deleted after that, the event fails and is retried until
+someone makes it again. A class no unit uses any more is left in MO.
 
 ### Report
 In MO, a code system's units are related to units in an administrative tree

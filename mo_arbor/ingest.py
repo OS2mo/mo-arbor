@@ -30,6 +30,7 @@ from mo_arbor.dumps import DumpFile
 from mo_arbor.dumps import DumpNotFound
 from mo_arbor.dumps import DumpStore
 from mo_arbor.mo import ClassNotFound
+from mo_arbor.mo import check_classes
 from mo_arbor.mo import create_root_unit
 from mo_arbor.mo import units_in_mo
 
@@ -159,6 +160,10 @@ async def ingest_code_system(
             f"{file_name} has more than {max_terminations} terminations"
         )
 
+    # Before recording the dump as ingested, as the handler could not make
+    # the units without their classes
+    await check_classes(mo, dump.units.values())
+
     log.info(
         "Ingesting dump",
         file_name=file_name,
@@ -216,7 +221,8 @@ async def ingest(
 
     Nothing is ingested for a code system whose newest dump is invalid, or
     removes more than `MAX_TERMINATIONS` units unless `force` is set, or
-    whose root unit's type is not a class in MO.
+    whose units' types and levels, or root unit's type, are not all classes
+    in MO.
     These are logged as errors, and the request fails after the other code
     systems are ingested.
 
