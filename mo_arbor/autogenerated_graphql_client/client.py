@@ -146,6 +146,7 @@ class GraphQLClient(AsyncBaseClient):
               files(filter: {file_store: $file_store}) {
                 objects {
                   file_name
+                  updated_at
                 }
               }
             }

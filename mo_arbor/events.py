@@ -94,7 +94,7 @@ async def handle_unit(
     if code_system_name not in settings.code_systems:
         raise HTTPException(status_code=404, detail="Code system not configured")
     code_system = CodeSystem(name=code_system_name)
-    dump = await dump_stores[code_system.name].newest(mo)
+    dump = await dump_stores[code_system.name].load_newest(mo)
     user_key = event.subject
     log = logger.bind(
         code_system=code_system.name, user_key=user_key, file_name=dump.file_name

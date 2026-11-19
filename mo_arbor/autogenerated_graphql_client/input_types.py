@@ -146,6 +146,10 @@ class AssociationUpdateInput(BaseModel):
     association_type: UUID | None = None
 
 
+class CPRFilter(BaseModel):
+    cpr_number: str
+
+
 class ClassCreateInput(BaseModel):
     uuid: UUID | None = None
     name: str
@@ -290,6 +294,7 @@ class EmployeeBoundEngagementFilter(BaseModel):
     registration: Optional["EngagementRegistrationFilter"] = None
     job_function: Optional["ClassFilter"] = None
     engagement_type: Optional["ClassFilter"] = None
+    explicit_manager: Optional["ManagerFilter"] | UnsetType = UNSET
     ituser: Optional["ITUserFilter"] = None
     primary: Optional["ClassFilter"] | UnsetType = UNSET
 
@@ -361,6 +366,8 @@ class EmployeeFilter(BaseModel):
     cpr_numbers: list[Any] | None = None
     owner: Optional["OwnerFilter"] = None
     ituser: Optional["ITUserFilter"] | UnsetType = UNSET
+    manager_role: Optional["ManagerFilter"] | UnsetType = UNSET
+    engagement: Optional["EngagementFilter"] | UnsetType = UNSET
 
 
 class EmployeeRegistrationFilter(BaseModel):
@@ -441,6 +448,7 @@ class EngagementCreateInput(BaseModel):
     extension_8: str | None = None
     extension_9: str | None = None
     extension_10: str | None = None
+    explicit_manager: UUID | None = None
     employee: UUID | None = None
     person: UUID | None = None
     org_unit: UUID
@@ -461,6 +469,7 @@ class EngagementFilter(BaseModel):
     registration: Optional["EngagementRegistrationFilter"] = None
     job_function: Optional["ClassFilter"] = None
     engagement_type: Optional["ClassFilter"] = None
+    explicit_manager: Optional["ManagerFilter"] | UnsetType = UNSET
     ituser: Optional["ITUserFilter"] = None
     primary: Optional["ClassFilter"] | UnsetType = UNSET
 
@@ -479,10 +488,10 @@ class EngagementTerminateInput(BaseModel):
 
 class EngagementUpdateInput(BaseModel):
     uuid: UUID
+    validity: "RAValidityInput"
     user_key: str | None = None
     primary: UUID | None = None
-    validity: "RAValidityInput"
-    fraction: int | None = None
+    fraction: int | None | UnsetType = UNSET
     extension_1: str | None = None
     extension_2: str | None = None
     extension_3: str | None = None
@@ -498,6 +507,7 @@ class EngagementUpdateInput(BaseModel):
     org_unit: UUID | None = None
     engagement_type: UUID | None = None
     job_function: UUID | None = None
+    explicit_manager: UUID | None | UnsetType = UNSET
 
 
 class EventAcknowledgeInput(BaseModel):
@@ -940,7 +950,7 @@ class ManagerUpdateInput(BaseModel):
     uuid: UUID
     validity: "RAValidityInput"
     user_key: str | None = None
-    person: UUID | None | UnsetType = UNSET
+    person: UUID | None = None
     engagement: UUID | None | UnsetType = UNSET
     responsibility: list[UUID] | None = None
     org_unit: UUID | None = None
@@ -1021,6 +1031,7 @@ class OrgUnitboundengagementfilter(BaseModel):
     registration: Optional["EngagementRegistrationFilter"] = None
     job_function: Optional["ClassFilter"] = None
     engagement_type: Optional["ClassFilter"] = None
+    explicit_manager: Optional["ManagerFilter"] | UnsetType = UNSET
     ituser: Optional["ITUserFilter"] = None
     primary: Optional["ClassFilter"] | UnsetType = UNSET
 
@@ -1366,6 +1377,32 @@ class RoleRegistrationFilter(BaseModel):
     end: datetime | None = None
 
 
+class RolebindingRuleCreateInput(BaseModel):
+    name: str
+    role: UUID
+    expression: Any
+    active: bool = True
+
+
+class RolebindingRuleDeleteInput(BaseModel):
+    uuid: UUID
+
+
+class RolebindingRuleFilter(BaseModel):
+    uuids: list[UUID] | None = None
+    names: list[str] | None = None
+    roles: list[UUID] | None = None
+    active: bool | None = None
+
+
+class RolebindingRuleUpdateInput(BaseModel):
+    uuid: UUID
+    name: str | None | UnsetType = UNSET
+    role: UUID | None | UnsetType = UNSET
+    expression: Any | None | UnsetType = UNSET
+    active: bool | None | UnsetType = UNSET
+
+
 class UuidsBoundClassFilter(BaseModel):
     user_keys: list[str] | None = None
     from_date: datetime | None | UnsetType = UNSET
@@ -1394,6 +1431,8 @@ class UuidsBoundEmployeeFilter(BaseModel):
     cpr_numbers: list[Any] | None = None
     owner: Optional["OwnerFilter"] = None
     ituser: Optional["ITUserFilter"] | UnsetType = UNSET
+    manager_role: Optional["ManagerFilter"] | UnsetType = UNSET
+    engagement: Optional["EngagementFilter"] | UnsetType = UNSET
 
 
 class UuidsBoundEngagementFilter(BaseModel):
@@ -1408,6 +1447,7 @@ class UuidsBoundEngagementFilter(BaseModel):
     registration: Optional["EngagementRegistrationFilter"] = None
     job_function: Optional["ClassFilter"] = None
     engagement_type: Optional["ClassFilter"] = None
+    explicit_manager: Optional["ManagerFilter"] | UnsetType = UNSET
     ituser: Optional["ITUserFilter"] = None
     primary: Optional["ClassFilter"] | UnsetType = UNSET
 
@@ -1499,6 +1539,7 @@ AssociationFilter.update_forward_refs()
 AssociationRegistrationFilter.update_forward_refs()
 AssociationTerminateInput.update_forward_refs()
 AssociationUpdateInput.update_forward_refs()
+CPRFilter.update_forward_refs()
 ClassCreateInput.update_forward_refs()
 ClassFilter.update_forward_refs()
 ClassOwnerFilter.update_forward_refs()
@@ -1619,6 +1660,10 @@ RoleBindingFilter.update_forward_refs()
 RoleBindingTerminateInput.update_forward_refs()
 RoleBindingUpdateInput.update_forward_refs()
 RoleRegistrationFilter.update_forward_refs()
+RolebindingRuleCreateInput.update_forward_refs()
+RolebindingRuleDeleteInput.update_forward_refs()
+RolebindingRuleFilter.update_forward_refs()
+RolebindingRuleUpdateInput.update_forward_refs()
 UuidsBoundClassFilter.update_forward_refs()
 UuidsBoundEmployeeFilter.update_forward_refs()
 UuidsBoundEngagementFilter.update_forward_refs()
