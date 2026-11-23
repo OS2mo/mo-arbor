@@ -89,11 +89,35 @@ class CodeSystem(BaseModel, frozen=True):
             case _:  # pragma: no cover
                 assert_never(self.name)
 
+    @property
+    def title(self) -> str:
+        """The code system's title in the report, e.g. "Økosted" for okosted."""
+        match self.name:
+            case "sor":
+                return "SOR"
+            case "okosted":
+                return "Økosted"
+            case _:  # pragma: no cover
+                assert_never(self.name)
+
     def unit_name(self, unit: Unit) -> str:
         """The name of a unit in MO."""
         if unit.parent is None and self.root_name is not None:
             return self.root_name
         return unit.name
+
+    def top_uuids(self, units: dict[str, Unit]) -> list[UUID]:
+        """The UUIDs in MO of the units at the top of the code system's tree.
+
+        That is its root unit, or a dump's roots if it has none.
+        """
+        if self.root_unit is not None:
+            return [self.root_unit.uuid]
+        return [
+            self.org_unit_uuid(user_key)
+            for user_key, unit in units.items()
+            if unit.parent is None
+        ]
 
     def org_unit_uuid(self, user_key: str) -> UUID:
         namespace = uuid5(NAMESPACE_URL, self.name)
@@ -106,6 +130,15 @@ class CodeSystem(BaseModel, frozen=True):
         if self.root_unit is None:
             return None
         return self.root_unit.uuid
+
+
+class ReportSettings(BaseModel, frozen=True):
+    """The roots in MO of the trees the report links the code systems to."""
+
+    # The administrative units, which the code systems' units are related to
+    root_adm: UUID
+    # The target tree's units, which the administrative units are related to
+    root_target: UUID
 
 
 class Settings(BaseSettings):
@@ -122,3 +155,7 @@ class Settings(BaseSettings):
     # Refuse to ingest a dump that removes more units than this, unless forced.
     # Protects against a truncated dump terminating half the tree.
     max_terminations: int = 10
+
+    # The report of the code systems' links to a target tree, e.g.
+    # REPORT__ROOT_ADM=<uuid> and REPORT__ROOT_TARGET=<uuid>. None to not report.
+    report: ReportSettings | None = None

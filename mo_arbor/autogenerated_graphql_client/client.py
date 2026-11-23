@@ -17,6 +17,8 @@ from ._testing__get_org_unit_history import TestingGetOrgUnitHistory
 from ._testing__get_org_unit_history import TestingGetOrgUnitHistoryOrgUnits
 from ._testing__list_events import TestingListEvents
 from ._testing__list_events import TestingListEventsEvents
+from ._testing__relate_units import TestingRelateUnits
+from ._testing__relate_units import TestingRelateUnitsRelatedUnitsUpdate
 from .async_base_client import AsyncBaseClient
 from .base_model import UNSET
 from .base_model import UnsetType
@@ -34,10 +36,15 @@ from .input_types import ListenerCreateInput
 from .input_types import OrganisationUnitCreateInput
 from .input_types import OrganisationUnitTerminateInput
 from .input_types import OrganisationUnitUpdateInput
+from .input_types import RelatedUnitsUpdateInput
 from .list_files import ListFiles
 from .list_files import ListFilesFiles
 from .list_org_units import ListOrgUnits
 from .list_org_units import ListOrgUnitsOrgUnits
+from .list_related_units import ListRelatedUnits
+from .list_related_units import ListRelatedUnitsOrgUnits
+from .list_report_units import ListReportUnits
+from .list_report_units import ListReportUnitsOrgUnits
 from .read_file import ReadFile
 from .read_file import ReadFileFiles
 from .send_event import SendEvent
@@ -230,6 +237,65 @@ class GraphQLClient(AsyncBaseClient):
         data = self.get_data(response)
         return ListOrgUnits.parse_obj(data).org_units
 
+    async def list_report_units(
+        self, roots: list[UUID], cursor: Any | None | UnsetType = UNSET
+    ) -> ListReportUnitsOrgUnits:
+        query = gql("""
+            query ListReportUnits($roots: [UUID!]!, $cursor: Cursor) {
+              org_units(filter: {ancestor: {uuids: $roots}}, limit: 1000, cursor: $cursor) {
+                objects {
+                  uuid
+                  current {
+                    user_key
+                    name
+                  }
+                }
+                page_info {
+                  next_cursor
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"roots": roots, "cursor": cursor}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return ListReportUnits.parse_obj(data).org_units
+
+    async def list_related_units(
+        self, root: UUID, cursor: Any | None | UnsetType = UNSET
+    ) -> ListRelatedUnitsOrgUnits:
+        query = gql("""
+            query ListRelatedUnits($root: UUID!, $cursor: Cursor) {
+              org_units(filter: {ancestor: {uuids: [$root]}}, limit: 1000, cursor: $cursor) {
+                objects {
+                  uuid
+                  current {
+                    user_key
+                    name
+                    related_units_response {
+                      objects {
+                        current {
+                          org_units_response {
+                            objects {
+                              uuid
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                page_info {
+                  next_cursor
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {"root": root, "cursor": cursor}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return ListRelatedUnits.parse_obj(data).org_units
+
     async def _testing__declare_event_listener(
         self, input: ListenerCreateInput
     ) -> TestingDeclareEventListenerEventListenerDeclare:
@@ -339,3 +405,18 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return TestingGetOrgUnitHistory.parse_obj(data).org_units
+
+    async def _testing__relate_units(
+        self, input: RelatedUnitsUpdateInput
+    ) -> TestingRelateUnitsRelatedUnitsUpdate:
+        query = gql("""
+            mutation _Testing_RelateUnits($input: RelatedUnitsUpdateInput!) {
+              related_units_update(input: $input) {
+                uuid
+              }
+            }
+            """)
+        variables: dict[str, object] = {"input": input}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return TestingRelateUnits.parse_obj(data).related_units_update
