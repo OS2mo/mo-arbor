@@ -6,8 +6,11 @@ See "Opbygning af SOR-id'er" under "Mere om SOR" on
 https://sundhedsdatastyrelsen.dk/data-og-registre/nationale-sundhedsregistre/sundhedsvaesenets-organisationsregister/om-sor
 """
 
+from typing import Any
+
 from pydantic import ConstrainedStr
 from pydantic import Field
+from pydantic import root_validator
 from stdnum import verhoeff
 
 from mo_arbor.code_system_file import Row
@@ -41,3 +44,14 @@ class SorRow(Row):
 
 class SorRows(Rows):
     __root__: tuple[SorRow, ...]
+    # single_root checks that there is one, and SOR stays one tree in MO
+    historic_under_root = True
+
+    @root_validator(skip_on_failure=True)
+    def single_root(cls, values: dict[str, Any]) -> dict[str, Any]:
+        rows = values["__root__"]
+        # The root is called SOR in MO, which only makes sense for one
+        roots = [r.user_key for r in rows if r.parent_user_key is None]
+        if len(roots) > 1:
+            raise ValueError(f"several roots: {', '.join(sorted(roots))}")
+        return values

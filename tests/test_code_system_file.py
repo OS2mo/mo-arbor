@@ -5,6 +5,7 @@ from itertools import permutations
 
 import pytest
 
+from mo_arbor.code_system_file import HISTORIC_USER_KEY
 from mo_arbor.code_system_file import InvalidFile
 from mo_arbor.code_system_file import Rows
 from mo_arbor.code_system_file import Unit
@@ -85,6 +86,40 @@ def test_start_is_clamped_to_parent_start() -> None:
     assert units[ROOT].start == date(2015, 7, 30)
     assert units[CHILD].start == date(2025, 1, 9)
     assert units[GRANDCHILD].start == date(2025, 1, 9)
+    # Valid under its parent once clamped, so it stays there
+    assert HISTORIC_USER_KEY not in units
+
+
+def test_unit_never_valid_under_parent_goes_under_historic_units() -> None:
+    """The grandchild closed before the child started, and keeps its child.
+
+    At the top, even with a single root, so under the code system's root unit.
+    """
+    text = file(
+        row(ROOT, validity_from="2010-01-01"),
+        row(CHILD, parent=ROOT, validity_from="2020-01-01"),
+        row(
+            GRANDCHILD,
+            parent=CHILD,
+            validity_from="2015-01-01",
+            validity_to="2019-12-31",
+        ),
+        row("GG", parent=GRANDCHILD, validity_from="2016-01-01"),
+    )
+    units = Rows.parse(text)
+
+    historic = units[HISTORIC_USER_KEY]
+    assert historic.parent is None
+    assert historic.name == "Historiske enheder"
+    assert historic.org_unit_type == "Ukendt"
+    assert historic.org_unit_level is None
+    assert historic.start == date(1900, 1, 1)
+    assert historic.end is None
+
+    assert units[GRANDCHILD].parent is historic
+    assert units[GRANDCHILD].start == date(2015, 1, 1)
+    assert units[GRANDCHILD].end == date(2019, 12, 31)
+    assert units["GG"].parent is units[GRANDCHILD]
 
 
 def test_start_after_parent_is_kept() -> None:
@@ -203,27 +238,6 @@ def test_values_are_stripped() -> None:
             id="validity-to-before-validity-from",
         ),
         pytest.param(
-            file(
-                row(ROOT, validity_to="2020-12-31"),
-                row(CHILD, parent=ROOT, validity_from="2021-01-01"),
-            ),
-            f"{CHILD}: not valid while its parent is",
-            id="starts-after-parent-ends",
-        ),
-        pytest.param(
-            file(
-                row(ROOT, validity_from="2020-01-01"),
-                row(
-                    CHILD,
-                    parent=ROOT,
-                    validity_from="2015-01-01",
-                    validity_to="2019-12-31",
-                ),
-            ),
-            f"{CHILD}: not valid while its parent is",
-            id="ends-before-parent-starts",
-        ),
-        pytest.param(
             # The reader fills the missing columns of a short row with None
             file(row(ROOT)) + f'"{CHILD}";"{ROOT}"\r\n',
             "__root__ -> 1 -> gyldig_fra\n  none is not an allowed value",
@@ -272,12 +286,33 @@ def test_invalid_file_is_rejected(text: str, error: str) -> None:
 # Made-up codes in the shape of real ones, with valid check digits
 SOR_ROOT = "1001000016005"
 SOR_CHILD = "100001000016006"
+SOR_SIBLING = "1000001000016004"
 
 
 def test_sor_codes() -> None:
     text = file(row(SOR_ROOT), row(SOR_CHILD, parent=SOR_ROOT))
     units = SorRows.parse(text)
     assert units[SOR_CHILD].parent_user_key == SOR_ROOT
+
+
+def test_sor_historic_units_under_root() -> None:
+    """Under SOR's single root, so SOR stays one tree, and cut to the root."""
+    text = file(
+        row(SOR_ROOT, validity_from="2010-01-01"),
+        row(SOR_SIBLING, parent=SOR_ROOT, validity_from="2020-01-01"),
+        row(
+            SOR_CHILD,
+            parent=SOR_SIBLING,
+            validity_from="2015-01-01",
+            validity_to="2019-12-31",
+        ),
+    )
+    units = SorRows.parse(text)
+
+    historic = units[HISTORIC_USER_KEY]
+    assert historic.parent is units[SOR_ROOT]
+    assert historic.start == date(2010, 1, 1)
+    assert units[SOR_CHILD].parent is historic
 
 
 @pytest.mark.parametrize(
@@ -293,6 +328,34 @@ def test_sor_codes() -> None:
             file(row(SOR_ROOT), row(SOR_CHILD, parent="1001000016006")),
             "__root__ -> 1 -> kode_parent\n  invalid SOR ID check digit",
             id="parent",
+        ),
+        pytest.param(
+            file(row(SOR_ROOT), row(SOR_SIBLING)),
+            f"__root__\n  several roots: {SOR_SIBLING}, {SOR_ROOT}",
+            id="several-roots",
+        ),
+        pytest.param(
+            file(
+                row(SOR_ROOT, validity_to="2020-12-31"),
+                row(SOR_CHILD, parent=SOR_ROOT, validity_from="2021-01-01"),
+            ),
+            # Under the root itself, so Historiske enheder, which is under the
+            # root too, does not help
+            f"{SOR_CHILD}: not valid while its parent is",
+            id="starts-after-root-ends",
+        ),
+        pytest.param(
+            file(
+                row(SOR_ROOT, validity_from="2020-01-01"),
+                row(
+                    SOR_CHILD,
+                    parent=SOR_ROOT,
+                    validity_from="2015-01-01",
+                    validity_to="2019-12-31",
+                ),
+            ),
+            f"{SOR_CHILD}: not valid while its parent is",
+            id="ends-before-root-starts",
         ),
     ],
 )

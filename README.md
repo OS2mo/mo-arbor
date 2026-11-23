@@ -35,6 +35,11 @@ as described in the supplier's spec
 - Every row must have a `type` and a `niveau`.
 - A unit is valid from `gyldig_fra` to `gyldig_til`, cut to its parent's
   validity. A unit that is gone from the dump is terminated.
+- A dump has only each unit's current parent, so a unit that closed before
+  its parent started is never valid while its parent is. It goes under
+  "Historiske enheder" instead, with its children. The integration adds that
+  unit under SOR's root, or at the top of Økosted, under its root unit. It is
+  of type `Ukendt`, which must be a class in MO, and has no level.
 - A file with other columns is rejected.
 - SOR codes must be valid SOR IDs, which catches codes damaged by Excel.
 
@@ -79,10 +84,11 @@ A unit's UUID is derived from its code and the code system's `name`, so the
 same code in two code systems is two units. Never rename a code system, as
 MO's existing units would become unreachable.
 
-SOR's dump has a single root, which is at the top of MO. Økosted's dumps have
-several roots, its legal entities, which go under a root unit the integration
-makes before it sends the first events: "Økosted", of type `region` and from
-1900-01-01. The `region` class must exist in MO, or Økosted is not ingested.
+SOR's dump has a single root, which is at the top of MO and is called "SOR"
+there, whatever the dump names it. A SOR dump with several roots is invalid.
+Økosted's dumps have several roots, its legal entities, which go under a root
+unit the integration makes before it sends the first events: "Økosted", of
+type `region` and from 1900-01-01. The `region` class must exist in MO, or Økosted is not ingested.
 
 The type and level are the classes in the `org_unit_type` and
 `org_unit_level` facets whose user_key is the row's `type` and `niveau`. If a
