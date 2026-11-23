@@ -8,6 +8,7 @@ import structlog
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastramqpi.depends import Sessionmaker
+from fastramqpi.metrics import dipex_last_success_timestamp
 from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -221,6 +222,9 @@ async def ingest(
 
     With `dry_run`, returns what would be ingested without sending events or
     recording anything.
+
+    The `dipex_last_success_timestamp` metric is set when nothing failed, so
+    an alert can tell when ingest stopped working.
     """
     if code_system is None:
         names = settings.code_systems
@@ -249,4 +253,6 @@ async def ingest(
         raise HTTPException(
             status_code=500, detail=f"Not ingested: {', '.join(failed)}"
         )
+    if not dry_run:
+        dipex_last_success_timestamp.set_to_current_time()
     return results

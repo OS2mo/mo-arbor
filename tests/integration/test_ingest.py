@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
 import json
+import re
 from collections.abc import Iterable
 from collections.abc import MutableMapping
 from datetime import UTC
 from datetime import date
 from datetime import datetime
+from time import time
 from typing import Any
 from uuid import UUID
 
@@ -99,6 +101,16 @@ def ingested(
 ) -> Ingested:
     changes = Diff(added=set(added), changed=set(changed), removed=set(removed))
     return Ingested(file_name=file_name, changes=changes)
+
+
+async def last_success(test_client: AsyncClient) -> float:
+    r = await test_client.get("/metrics")
+    r.raise_for_status()
+    match = re.search(
+        r"^dipex_last_success_timestamp_seconds (\S+)$", r.text, flags=re.MULTILINE
+    )
+    assert match is not None
+    return float(match.group(1))
 
 
 def not_ingested(cap_logs: list[MutableMapping[str, Any]]) -> list[str]:
@@ -218,6 +230,29 @@ async def test_ingest_twice_does_nothing(
 
     assert await ingest(test_client) is None
     assert await consume_all_events(graphql_client, listener) == set()
+
+
+@pytest.mark.integration_test
+async def test_last_success_metric(
+    test_client: AsyncClient, upload_file: UploadFile
+) -> None:
+    """Set when nothing failed, so an alert can tell when ingest stopped working."""
+    before = await last_success(test_client)
+    await upload_file(APRIL_30, ROOT_A_B)
+
+    # Økosted has no dumps
+    with pytest.raises(HTTPStatusError):
+        await ingest_all(test_client)
+    await ingest(test_client, dry_run=True)
+    assert await last_success(test_client) == before
+
+    start = time()
+    await ingest(test_client)
+    assert await last_success(test_client) >= start
+    # Nothing changed, which is still a success
+    start = time()
+    assert await ingest(test_client) is None
+    assert await last_success(test_client) >= start
 
 
 @pytest.mark.integration_test
