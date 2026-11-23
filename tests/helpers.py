@@ -6,10 +6,20 @@ import csv
 import io
 from collections.abc import Awaitable
 from collections.abc import Callable
+from uuid import UUID
 
 # The integration tests' `upload_file` fixture, called with a file name and the
 # file's contents
 UploadFile = Callable[[str, str], Awaitable[None]]
+
+# The roots of the Adm and target trees in the integration tests' report settings,
+# which a test sets with @pytest.mark.envvar(REPORT_ENV)
+ROOT_ADM = UUID("a0000000-0000-4000-8000-000000000001")
+ROOT_TARGET = UUID("a0000000-0000-4000-8000-000000000002")
+REPORT_ENV = {
+    "REPORT__ROOT_ADM": str(ROOT_ADM),
+    "REPORT__ROOT_TARGET": str(ROOT_TARGET),
+}
 
 COLUMNS = [
     "kode",

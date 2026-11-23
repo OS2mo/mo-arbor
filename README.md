@@ -94,6 +94,40 @@ The type and level are the classes in the `org_unit_type` and
 `org_unit_level` facets whose user_key is the row's `type` and `niveau`. If a
 class does not exist, the event fails and is retried until someone creates it.
 
+### Report
+In MO, a code system's units are related to units in an administrative tree
+(Adm), which are related to units in a target tree. A cron job calls
+`POST /report`, which uploads a report of these links for each code system to
+the `EXPORTS` file store, e.g. `sor_relations_20261117_120000.csv` (the time
+is Danish). The roots of the two trees are set in `REPORT__ROOT_ADM` and
+`REPORT__ROOT_TARGET`; without them, there is no report.
+
+The report has a row for each chain, code system unit -> Adm unit -> target
+unit, so a unit related to two Adm units, each related to three target units,
+has six rows. A chain that stops early, such as at a unit related to no Adm
+unit, has empty fields for the rest. A relation from a code system's unit
+straight to a target unit is not a chain. Only active units and relations are
+reported.
+
+```
+"Source_System";"Source_Code";"Source_Name";"Adm_System";"Adm_Code";"Adm_Name";"Target_System";"Target_Code";"Target_Name"
+"SOR";"100001000016006";"Afdeling A";"Adm-træet";"ADM1";"Adm 1";"Target-træet";"S1";"Target 1"
+"SOR";"1001000016005";"SOR";"";"";"";"";"";""
+```
+
+The file is UTF-8 without a byte order mark, with `;` as separator and CRLF
+line endings. Every field is quoted, and a `"` in a field is written as `""`
+(RFC 4180). Rows are sorted by code. The systems are named as their roots are
+in MO: the code system's root, and the units in `REPORT__ROOT_ADM` and
+`REPORT__ROOT_TARGET`.
+
+SOR's root is read from its newest dump, so a code system without a valid
+dump is not reported; the others are, but the request fails. The same goes
+if the Adm or target root is not an active unit in MO.
+
+`?dry_run=true` shows what would be uploaded without uploading it, and
+`?code_system=<name>` reports only that code system.
+
 
 ## Sundhedsvæsenets Organisationsregister (SOR)
 SOR registers organisation and address data, as well as location numbers, for
