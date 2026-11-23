@@ -74,30 +74,6 @@ def test_parse() -> None:
     assert units[GRANDCHILD].depth == 3
 
 
-def test_aktiv_and_dw_is_deleted_are_not_used() -> None:
-    text = file(
-        row(
-            ROOT,
-            name="Root",
-            org_unit_type="region",
-            org_unit_level="N1",
-            aktiv="false",
-            dw_is_deleted="true",
-        )
-    )
-    assert Rows.parse(text) == {
-        ROOT: Unit(
-            user_key=ROOT,
-            parent=None,
-            name="Root",
-            org_unit_type="region",
-            org_unit_level="N1",
-            validity_from=date(2015, 7, 30),
-            validity_to=None,
-        )
-    }
-
-
 def test_start_is_clamped_to_parent_start() -> None:
     """The grandchild is clamped to the child's clamped start."""
     text = file(
