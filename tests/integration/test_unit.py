@@ -376,6 +376,21 @@ async def test_unit_not_in_dump_is_terminated(
 
 
 @pytest.mark.integration_test
+async def test_unit_in_neither_dump_nor_mo_is_ignored(
+    trigger_org_units: Callable[[CodeSystem, list[str]], Awaitable[None]],
+    graphql_client: GraphQLClient,
+    upload_file: UploadFile,
+    sor: CodeSystem,
+) -> None:
+    """Such as an old event for a unit removed before it was made."""
+    await upload_file(MARCH_31, file(row(ROOT)))
+
+    await trigger_org_units(sor, [CHILD])
+
+    assert await history(graphql_client, sor.org_unit_uuid(CHILD)) == []
+
+
+@pytest.mark.integration_test
 @pytest.mark.usefixtures("region", "klinisk_enhed", "n1")
 async def test_ended_unit_not_in_dump_is_not_changed(
     trigger_org_units: Callable[[CodeSystem, list[str]], Awaitable[None]],
