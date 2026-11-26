@@ -112,13 +112,27 @@ query ListOrgUnits($roots: [UUID!]!, $from_date: DateTime!, $cursor: Cursor) {
   }
 }
 
-query ListReportUnits($roots: [UUID!]!, $cursor: Cursor) {
-  org_units(filter: {ancestor: {uuids: $roots}}, limit: 1000, cursor: $cursor) {
+# Every period of the units in the trees of the roots, also of units that have
+# ended or not started, or were under a root only before
+query ListUnitHistories($roots: [UUID!]!, $cursor: Cursor) {
+  org_units(
+    filter: {
+      ancestor: {uuids: $roots, from_date: null, to_date: null}
+      from_date: null
+      to_date: null
+    }
+    limit: 100
+    cursor: $cursor
+  ) {
     objects {
       uuid
-      current {
+      validities(start: null, end: null) {
         user_key
         name
+        validity {
+          from
+          to
+        }
       }
     }
     page_info {
@@ -127,22 +141,30 @@ query ListReportUnits($roots: [UUID!]!, $cursor: Cursor) {
   }
 }
 
-query ListRelatedUnits($root: UUID!, $cursor: Cursor) {
-  org_units(filter: {ancestor: {uuids: [$root]}}, limit: 1000, cursor: $cursor) {
+# Every period of the relations to the units in the trees of the roots
+query ListRelations($roots: [UUID!]!, $cursor: Cursor) {
+  related_units(
+    filter: {
+      org_unit: {
+        ancestor: {uuids: $roots, from_date: null, to_date: null}
+        from_date: null
+        to_date: null
+      }
+      from_date: null
+      to_date: null
+    }
+    limit: 100
+    cursor: $cursor
+  ) {
     objects {
-      uuid
-      current {
-        user_key
-        name
-        related_units_response {
+      validities(start: null, end: null) {
+        validity {
+          from
+          to
+        }
+        org_units_response(filter: {from_date: null, to_date: null}) {
           objects {
-            current {
-              org_units_response {
-                objects {
-                  uuid
-                }
-              }
-            }
+            uuid
           }
         }
       }

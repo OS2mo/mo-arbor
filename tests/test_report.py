@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
 # SPDX-License-Identifier: MPL-2.0
 from collections import defaultdict
+from datetime import date
 from datetime import datetime
 from uuid import UUID
 from uuid import uuid4
@@ -13,11 +14,19 @@ from mo_arbor.config import ReportSettings
 from mo_arbor.config import Settings
 from mo_arbor.dumps import DumpStore
 from mo_arbor.report import Chain
+from mo_arbor.report import Period
 from mo_arbor.report import ReportUnit
 from mo_arbor.report import Systems
+from mo_arbor.report import UnitHistory
+from mo_arbor.report import UnitPeriod
 from mo_arbor.report import chains
+from mo_arbor.report import merged
 from mo_arbor.report import report_file_name
 from mo_arbor.report import to_csv
+
+
+def days(start: date, end: date | None) -> Period:
+    return Period(start=start, end=end)
 
 
 def unit(user_key: str, name: str = "Unit") -> ReportUnit:
@@ -32,6 +41,73 @@ def related(*pairs: tuple[ReportUnit, ReportUnit]) -> dict[UUID, set[UUID]]:
     # A plain dict, as chains gets outside the tests, so a lookup of a unit
     # without relations fails here too
     return dict(by_uuid)
+
+
+@pytest.mark.parametrize(
+    "periods,expected",
+    [
+        # A relation removed on the day it was made has no days
+        ([days(date(2025, 1, 1), date(2025, 1, 1))], []),
+        # Split where the unit's other relations were set
+        (
+            [days(date(2024, 1, 1), None), days(date(2020, 1, 1), date(2024, 1, 1))],
+            [days(date(2020, 1, 1), None)],
+        ),
+        (
+            [
+                days(date(2020, 1, 1), date(2023, 1, 1)),
+                days(date(2022, 1, 1), date(2024, 1, 1)),
+            ],
+            [days(date(2020, 1, 1), date(2024, 1, 1))],
+        ),
+        # Removed, and made again later
+        (
+            [
+                days(date(2020, 1, 1), date(2021, 1, 1)),
+                days(date(2022, 1, 1), None),
+            ],
+            [
+                days(date(2020, 1, 1), date(2021, 1, 1)),
+                days(date(2022, 1, 1), None),
+            ],
+        ),
+    ],
+)
+def test_merged(periods: list[Period], expected: list[Period]) -> None:
+    assert merged(periods) == expected
+
+
+def test_unit_at() -> None:
+    """As it was on the day, or None if it was not active."""
+    history = UnitHistory(
+        uuid=uuid4(),
+        periods=(
+            UnitPeriod(
+                start=date(2020, 1, 1),
+                end=date(2021, 1, 1),
+                user_key="A",
+                name="Gammel",
+            ),
+            UnitPeriod(start=date(2022, 1, 1), end=None, user_key="A", name="Ny"),
+        ),
+    )
+
+    assert history.at(date(2020, 12, 31)) == ReportUnit(
+        uuid=history.uuid, user_key="A", name="Gammel"
+    )
+    # The end is not part of a period
+    assert history.at(date(2021, 1, 1)) is None
+    assert history.at(date(2022, 1, 1)) == ReportUnit(
+        uuid=history.uuid, user_key="A", name="Ny"
+    )
+
+
+@pytest.mark.parametrize(
+    "end,empty",
+    [(None, False), (date(2020, 1, 2), False), (date(2020, 1, 1), True)],
+)
+def test_period_empty(end: date | None, empty: bool) -> None:
+    assert Period(start=date(2020, 1, 1), end=end).empty is empty
 
 
 def test_chains() -> None:

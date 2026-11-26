@@ -43,10 +43,10 @@ from .list_files import ListFiles
 from .list_files import ListFilesFiles
 from .list_org_units import ListOrgUnits
 from .list_org_units import ListOrgUnitsOrgUnits
-from .list_related_units import ListRelatedUnits
-from .list_related_units import ListRelatedUnitsOrgUnits
-from .list_report_units import ListReportUnits
-from .list_report_units import ListReportUnitsOrgUnits
+from .list_relations import ListRelations
+from .list_relations import ListRelationsRelatedUnits
+from .list_unit_histories import ListUnitHistories
+from .list_unit_histories import ListUnitHistoriesOrgUnits
 from .read_file import ReadFile
 from .read_file import ReadFileFiles
 from .send_event import SendEvent
@@ -258,17 +258,25 @@ class GraphQLClient(AsyncBaseClient):
         data = self.get_data(response)
         return ListOrgUnits.parse_obj(data).org_units
 
-    async def list_report_units(
+    async def list_unit_histories(
         self, roots: list[UUID], cursor: Any | None | UnsetType = UNSET
-    ) -> ListReportUnitsOrgUnits:
+    ) -> ListUnitHistoriesOrgUnits:
         query = gql("""
-            query ListReportUnits($roots: [UUID!]!, $cursor: Cursor) {
-              org_units(filter: {ancestor: {uuids: $roots}}, limit: 1000, cursor: $cursor) {
+            query ListUnitHistories($roots: [UUID!]!, $cursor: Cursor) {
+              org_units(
+                filter: {ancestor: {uuids: $roots, from_date: null, to_date: null}, from_date: null, to_date: null}
+                limit: 100
+                cursor: $cursor
+              ) {
                 objects {
                   uuid
-                  current {
+                  validities(start: null, end: null) {
                     user_key
                     name
+                    validity {
+                      from
+                      to
+                    }
                   }
                 }
                 page_info {
@@ -280,28 +288,27 @@ class GraphQLClient(AsyncBaseClient):
         variables: dict[str, object] = {"roots": roots, "cursor": cursor}
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
-        return ListReportUnits.parse_obj(data).org_units
+        return ListUnitHistories.parse_obj(data).org_units
 
-    async def list_related_units(
-        self, root: UUID, cursor: Any | None | UnsetType = UNSET
-    ) -> ListRelatedUnitsOrgUnits:
+    async def list_relations(
+        self, roots: list[UUID], cursor: Any | None | UnsetType = UNSET
+    ) -> ListRelationsRelatedUnits:
         query = gql("""
-            query ListRelatedUnits($root: UUID!, $cursor: Cursor) {
-              org_units(filter: {ancestor: {uuids: [$root]}}, limit: 1000, cursor: $cursor) {
+            query ListRelations($roots: [UUID!]!, $cursor: Cursor) {
+              related_units(
+                filter: {org_unit: {ancestor: {uuids: $roots, from_date: null, to_date: null}, from_date: null, to_date: null}, from_date: null, to_date: null}
+                limit: 100
+                cursor: $cursor
+              ) {
                 objects {
-                  uuid
-                  current {
-                    user_key
-                    name
-                    related_units_response {
+                  validities(start: null, end: null) {
+                    validity {
+                      from
+                      to
+                    }
+                    org_units_response(filter: {from_date: null, to_date: null}) {
                       objects {
-                        current {
-                          org_units_response {
-                            objects {
-                              uuid
-                            }
-                          }
-                        }
+                        uuid
                       }
                     }
                   }
@@ -312,10 +319,10 @@ class GraphQLClient(AsyncBaseClient):
               }
             }
             """)
-        variables: dict[str, object] = {"root": root, "cursor": cursor}
+        variables: dict[str, object] = {"roots": roots, "cursor": cursor}
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
-        return ListRelatedUnits.parse_obj(data).org_units
+        return ListRelations.parse_obj(data).related_units
 
     async def _testing__declare_event_listener(
         self, input: ListenerCreateInput
