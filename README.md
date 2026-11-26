@@ -129,9 +129,11 @@ line endings. Every field is quoted, and a `"` in a field is written as `""`
 in MO: the code system's root, and the units in `REPORT__ROOT_ADM` and
 `REPORT__ROOT_TARGET`.
 
-SOR's root is read from its newest dump, so a code system without a valid
-dump is not reported; the others are, but the request fails. The same goes
-if the Adm or target root is not an active unit in MO.
+A code system's units are found under its root unit, such as Økosted's, or
+else its root in MO, the root unit whose UUID is derived from its code, such as
+SOR's. A code system that is not in MO is not reported; the others are, but the
+request fails. The same goes if the Adm or target root is not an active unit in
+MO.
 
 A report the same as the code system's last one in the file store is not
 uploaded, so a new file means something changed. The integration keeps no

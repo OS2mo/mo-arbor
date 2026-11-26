@@ -45,6 +45,8 @@ from .list_org_units import ListOrgUnits
 from .list_org_units import ListOrgUnitsOrgUnits
 from .list_relations import ListRelations
 from .list_relations import ListRelationsRelatedUnits
+from .list_root_units import ListRootUnits
+from .list_root_units import ListRootUnitsOrgUnits
 from .list_unit_histories import ListUnitHistories
 from .list_unit_histories import ListUnitHistoriesOrgUnits
 from .read_file import ReadFile
@@ -172,6 +174,24 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return TerminateOrgUnit.parse_obj(data).org_unit_terminate
+
+    async def list_root_units(self) -> ListRootUnitsOrgUnits:
+        query = gql("""
+            query ListRootUnits {
+              org_units(filter: {parent: null, from_date: null, to_date: null}) {
+                objects {
+                  uuid
+                  validities(start: null, end: null) {
+                    user_key
+                  }
+                }
+              }
+            }
+            """)
+        variables: dict[str, object] = {}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return ListRootUnits.parse_obj(data).org_units
 
     async def list_files(self, file_store: FileStore) -> ListFilesFiles:
         query = gql("""
