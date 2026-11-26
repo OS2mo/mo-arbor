@@ -3,6 +3,7 @@
 from datetime import date
 from typing import Literal
 from typing import assert_never
+from typing import get_args
 from uuid import NAMESPACE_URL
 from uuid import UUID
 from uuid import uuid5
@@ -10,6 +11,7 @@ from uuid import uuid5
 from fastramqpi.config import Settings as FastRAMQPISettings
 from pydantic import BaseModel
 from pydantic import BaseSettings
+from pydantic import validator
 
 from mo_arbor.code_system_file import Rows
 from mo_arbor.code_system_file import Unit
@@ -136,12 +138,19 @@ class LoenReportSettings(BaseModel, frozen=True):
     """The report of how SOR's units link to a løn tree through the Adm tree."""
 
     # The løn tree's name in the report's file name, as in
-    # sor_<name>_report_<time>.csv.
+    # sor_<name>_report_<time>.csv. The other reports are named after their code
+    # systems.
     name: str
     # The administrative units, which SOR's units are related to
     root_adm: UUID
     # The løn tree's units, which the administrative units are related to
     root_loen: UUID
+
+    @validator("name")
+    def not_a_code_system(cls, name: str) -> str:
+        if name in get_args(CodeSystemName):
+            raise ValueError(f"{name} is the name of a code system's report")
+        return name
 
 
 class Settings(BaseSettings):
@@ -161,5 +170,6 @@ class Settings(BaseSettings):
 
     # The report of how SOR's units link to a løn tree, e.g.
     # LOEN_REPORT__NAME=<name>, LOEN_REPORT__ROOT_ADM=<uuid> and
-    # LOEN_REPORT__ROOT_LOEN=<uuid>. None to not report it.
+    # LOEN_REPORT__ROOT_LOEN=<uuid>. None to not report it. The code systems'
+    # reports need no settings.
     loen_report: LoenReportSettings | None = None

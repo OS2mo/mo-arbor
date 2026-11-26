@@ -7,8 +7,10 @@ from uuid import UUID
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 from pytest import MonkeyPatch
 
+from mo_arbor.config import CodeSystem
 from mo_arbor.config import LoenReportSettings
 from mo_arbor.config import Settings
 from mo_arbor.dumps import DumpStore
@@ -17,12 +19,16 @@ from mo_arbor.report import Period
 from mo_arbor.report import Related
 from mo_arbor.report import Relation
 from mo_arbor.report import ReportUnit
+from mo_arbor.report import RootNotFound
 from mo_arbor.report import UnitHistory
 from mo_arbor.report import UnitPeriod
+from mo_arbor.report import code_system_csv
+from mo_arbor.report import code_system_links
 from mo_arbor.report import loen_chains
 from mo_arbor.report import loen_csv
 from mo_arbor.report import merged
 from mo_arbor.report import report_file_name
+from mo_arbor.report import root_name
 
 TODAY = date(2026, 11, 25)
 ALWAYS = Period(start=date(2020, 1, 1), end=None)
@@ -363,6 +369,35 @@ def test_future_relation_on_its_first_day() -> None:
     ]
 
 
+def test_code_system_links() -> None:
+    """A row per relation, which may stop after its source."""
+    a, b = unit("A"), unit("B")
+    x, y = unit("X"), unit("Y")
+    # Related to A, but not a target unit
+    other = unit("OTHER")
+    until_2024 = days(date(2020, 1, 1), date(2024, 1, 1))
+    from_2025 = days(date(2025, 1, 1), None)
+
+    rows = code_system_links(
+        sources=[b, a],
+        target_units=by_uuid(x, y),
+        related=related(
+            (a, y, ALWAYS),
+            (a, x, from_2025),
+            (a, x, until_2024),
+            (a, other, ALWAYS),
+        ),
+        today=TODAY,
+    )
+
+    assert rows == [
+        (at(a, date(2023, 12, 31)), rel(x, until_2024, date(2023, 12, 31))),
+        (at(a), rel(x, from_2025)),
+        (at(a), rel(y)),
+        (at(b), None),
+    ]
+
+
 def test_csv() -> None:
     """Every field quoted, `"` doubled, `;` separated, CRLF and no BOM.
 
@@ -393,9 +428,44 @@ def test_csv() -> None:
     )
 
 
-def test_report_is_not_a_dump() -> None:
-    file_name = report_file_name("loen", datetime(2026, 11, 17, 12, 0, 0))
-    assert file_name == "sor_loen_report_20261117_120000.csv"
+def test_code_system_csv() -> None:
+    """No Adm columns."""
+    rows = [
+        (
+            report_unit("1", "Afd"),
+            Relation(unit=report_unit("X_NIVEAU_7", "Sted"), period=ALWAYS),
+        ),
+        (report_unit("2", "Uden"), None),
+    ]
+
+    assert (
+        code_system_csv(CodeSystem(name="okosted"), rows)
+        == (
+            '"Source_System";"Source_Code";"Source_Name";'
+            '"Target_System";"Target_Code";"Target_Name";"Target_From";"Target_To"\r\n'
+            '"SOR";"1";"Afd";"Økosted";"X_NIVEAU_7";"Sted";"2020-01-01";""\r\n'
+            '"SOR";"2";"Uden";"";"";"";"";""\r\n'
+        ).encode()
+    )
+
+
+def test_root_name() -> None:
+    root = unit("ROOT", (date(2020, 1, 1), None, "Træet"))
+    assert root_name(by_uuid(root), root.uuid, TODAY) == "Træet"
+
+
+def test_root_not_active() -> None:
+    """In MO, but ended, so the report cannot be named after it."""
+    root = unit("ROOT", (date(2020, 1, 1), date(2024, 1, 1), "Træet"))
+    with pytest.raises(RootNotFound, match="is not an active unit in MO"):
+        root_name(by_uuid(root), root.uuid, TODAY)
+
+
+@pytest.mark.parametrize("name", ["loen", "okosted"])
+def test_report_is_not_a_dump(name: str) -> None:
+    """Not even sor_okosted_<time>.csv, which would look like Økosted's dump."""
+    file_name = report_file_name(name, datetime(2026, 11, 17, 12, 0, 0))
+    assert file_name == f"sor_{name}_report_20261117_120000.csv"
     assert DumpStore("sor").dump_time(file_name) is None
     assert DumpStore("okosted").dump_time(file_name) is None
 
@@ -419,3 +489,10 @@ def test_report_settings(monkeypatch: MonkeyPatch) -> None:
         root_adm=UUID(REPORT_ENV["LOEN_REPORT__ROOT_ADM"]),
         root_loen=UUID(REPORT_ENV["LOEN_REPORT__ROOT_LOEN"]),
     )
+
+
+@pytest.mark.parametrize("name", ["sor", "okosted"])
+def test_loen_report_not_named_as_a_code_system(name: str) -> None:
+    """The code systems' reports are named after them."""
+    with pytest.raises(ValidationError, match="is the name of a code system's report"):
+        LoenReportSettings(name=name, root_adm=uuid4(), root_loen=uuid4())

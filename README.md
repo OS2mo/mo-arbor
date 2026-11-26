@@ -103,20 +103,31 @@ Should a class be deleted after that, the event fails and is retried until
 someone makes it again. A class no unit uses any more is left in MO.
 
 ### Report
-In MO, SOR's units are related to units in an administrative tree (Adm), which
-are related to units in a løn tree. A cron job calls `POST /report`, which
-uploads a report of these links to the `EXPORTS` file store, as
-`sor_<name>_report_<time>.csv`. The report is set with `LOEN_REPORT__ROOT_ADM`
-and `LOEN_REPORT__ROOT_LOEN`, the roots of the two trees, and
-`LOEN_REPORT__NAME`, the løn tree's name in the file name. `<time>` is Danish,
-such as `20261117_120000`. Without the settings, or without `sor` in
-`CODE_SYSTEMS`, there is no report.
+A cron job calls `POST /report`, which uploads reports of how SOR's units are
+related to other trees in MO to the `EXPORTS` file store. SOR is the source of
+every report, so there are none without `sor` in `CODE_SYSTEMS`:
 
-The report has a row for each chain, SOR unit -> Adm unit -> løn unit, and
-each time it was valid, so a unit related to two Adm units, each related to
-three løn units, has six rows. A chain that stops early, such as at a unit
-related to no Adm unit, has empty fields for the rest. A relation from a SOR
-unit straight to a løn unit is not a chain.
+- **SOR -> Adm -> løn:** SOR's units are related to units in an
+  administrative tree (Adm), which are related to units in a løn tree. The
+  report is set with `LOEN_REPORT__ROOT_ADM` and `LOEN_REPORT__ROOT_LOEN`, the
+  roots of the two trees, and `LOEN_REPORT__NAME`, the løn tree's name in the
+  file name; without them, it is not made. A relation from a SOR unit straight
+  to a løn unit is not a chain.
+- **SOR -> another code system:** SOR's units are related straight to the
+  units of another code system, such as Økosted. There is one for each code
+  system in `CODE_SYSTEMS` besides SOR, named after it, e.g. `okosted`. Its
+  units are found under the code system's root unit, or, if it has none, its
+  roots in MO, as SOR's are.
+
+Each report has its own file, `sor_<name>_report_<time>.csv`, e.g.
+`sor_okosted_report_20261117_120000.csv` (the time is Danish). The løn
+report's `<name>` is `LOEN_REPORT__NAME`, which cannot be a code system's
+name.
+
+A report has a row for each chain, and each time it was valid, so a SOR unit
+related to two Adm units, each related to three løn units, has six rows. A
+chain that stops early, such as at a unit related to no Adm unit, has empty
+fields for the rest.
 
 ```
 "Source_System";"Source_Code";"Source_Name";"Adm_System";"Adm_Code";"Adm_Name";"Adm_From";"Adm_To";"Target_System";"Target_Code";"Target_Name";"Target_From";"Target_To"
@@ -125,10 +136,17 @@ unit straight to a løn unit is not a chain.
 "SOR";"1001000016005";"SOR";"";"";"";"";"";"";"";"";"";""
 ```
 
+A code system's report has no Adm columns, such as Økosted's:
+
+```
+"Source_System";"Source_Code";"Source_Name";"Target_System";"Target_Code";"Target_Name";"Target_From";"Target_To"
+"SOR";"100001000016006";"Afdeling A";"Økosted";"X_NIVEAU_2";"Sted X";"2020-01-01";""
+```
+
 Every SOR unit is reported, also those that have ended or not started, except
 "Historiske enheder" itself, with every relation it has had. `Adm_From` and
 `Adm_To` are when the relation from the SOR unit to the Adm unit was valid,
-and `Target_From` and `Target_To` when the one on to the løn unit was. A
+and `Target_From` and `Target_To` when the one on to the next unit was. A
 chain is only reported if its two relations were valid at the same time. From
 is the first day, and To the last, or empty if the relation does not end.
 Periods of the same relation that follow each other are one, and a relation
@@ -142,19 +160,20 @@ if it has ended, or its first day, if it has not started.
 The file is UTF-8 without a byte order mark, with `;` as separator and CRLF
 line endings. Every field is quoted, and a `"` in a field is written as `""`
 (RFC 4180). Rows are sorted by code, then From. The systems are named as their
-roots are in MO today: SOR, and the units in `LOEN_REPORT__ROOT_ADM` and
-`LOEN_REPORT__ROOT_LOEN`.
+roots are in MO today: the code systems', such as SOR and Økosted, and the
+units in `LOEN_REPORT__ROOT_ADM` and `LOEN_REPORT__ROOT_LOEN`.
 
 SOR's root is found in MO, among its root units, by its UUID, which is derived
-from its code, so without SOR in MO there is no report, and the request fails.
-The same goes if the Adm or løn root is not an active unit in MO.
+from its code, so without SOR in MO there are no reports, and the request
+fails. A report whose Adm or løn root is not an active unit in MO, or whose
+code system is not in MO, is not made; the others are, but the request fails.
 
 A report the same as its last one in the file store is not uploaded, so a new
 file means something changed. The integration keeps no record of its reports;
 it compares with the last one MO wrote.
 
 `?dry_run=true` shows what would be uploaded without uploading it, and
-`?name=<name>` names the report to make.
+`?name=<name>` makes only that report.
 
 
 ## Sundhedsvæsenets Organisationsregister (SOR)

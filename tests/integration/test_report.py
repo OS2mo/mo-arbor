@@ -31,10 +31,11 @@ A = "100001000016006"
 # Ended at the end of 2023, and starts in 2099
 ENDED = "20001000016008"
 FUTURE = "30001000016006"
+X = "X_NIVEAU_2"
 ADM1 = UUID("b0000000-0000-4000-8000-000000000001")
 S1 = UUID("b0000000-0000-4000-8000-000000000002")
 
-# The report of the trees fixture. Sorted by code as text, so A's comes first.
+# The reports of the trees fixture. Sorted by code as text, so A's comes first.
 # The systems are named after the roots.
 LOEN_REPORT = (
     '"Source_System";"Source_Code";"Source_Name";"Adm_System";"Adm_Code";'
@@ -51,12 +52,24 @@ LOEN_REPORT = (
     '"SOR";"30001000016006";"Ny afdeling";"Adm-træet";"ADM1";"Adm 1";'
     '"2099-01-01";"";"Løn-træet";"S1";"Løn 1";"2020-01-01";""\r\n'
 )
+OKOSTED_REPORT = (
+    '"Source_System";"Source_Code";"Source_Name";'
+    '"Target_System";"Target_Code";"Target_Name";"Target_From";"Target_To"\r\n'
+    '"SOR";"100001000016006";"Afdeling A";"Økosted";"X_NIVEAU_2";"Sted X";'
+    '"2020-01-01";""\r\n'
+    '"SOR";"1001000016005";"SOR";"";"";"";"";""\r\n'
+    '"SOR";"20001000016008";"Lukket afdeling";"";"";"";"";""\r\n'
+    '"SOR";"30001000016006";"Ny afdeling";"";"";"";"";""\r\n'
+)
 
 
-async def report(test_client: AsyncClient, dry_run: bool = False) -> Reported | None:
-    r = await test_client.post("/report", params={"name": "loen", "dry_run": dry_run})
+async def report(
+    test_client: AsyncClient, name: str = "loen", dry_run: bool = False
+) -> Reported | None:
+    """Make only the report called `name`."""
+    r = await test_client.post("/report", params={"name": name, "dry_run": dry_run})
     r.raise_for_status()
-    return parse_obj_as(dict[str, Reported | None], r.json())["loen"]
+    return parse_obj_as(dict[str, Reported | None], r.json())[name]
 
 
 async def report_files(graphql_client: GraphQLClient) -> set[str]:
@@ -86,13 +99,15 @@ async def relate(
 async def trees(
     graphql_client: GraphQLClient,
     sor: CodeSystem,
+    okosted: CodeSystem,
     region: UUID,
 ) -> None:
-    """SOR's units, the Adm tree with ADM1, and the løn tree with S1.
+    """SOR's units, the Adm tree with ADM1, the løn tree with S1, and Økosted.
 
-    A, ENDED and FUTURE are related to ADM1, which is related to S1. ROOT is
-    related to nothing.
+    A, ENDED and FUTURE are related to ADM1, which is related to S1. A is also
+    related to Økosted's X. ROOT is related to nothing.
     """
+    assert okosted.root_unit is not None
     always = date(2020, 1, 1)
     units = [
         (sor.org_unit_uuid(ROOT), ROOT, "SOR", None, always),
@@ -115,6 +130,8 @@ async def trees(
         (ADM1, "ADM1", "Adm 1", ROOT_ADM, always),
         (ROOT_LOEN, "loen", "Løn-træet", None, always),
         (S1, "S1", "Løn 1", ROOT_LOEN, always),
+        (okosted.root_unit.uuid, "okosted", "Økosted", None, always),
+        (okosted.org_unit_uuid(X), X, "Sted X", okosted.root_unit.uuid, always),
     ]
     for uuid, user_key, name, parent, start in units:
         await graphql_client.create_org_unit(
@@ -136,6 +153,7 @@ async def trees(
         OrganisationUnitTerminateInput(uuid=ended, to=mo_datetime(date(2024, 1, 1)))
     )
     await relate(graphql_client, ADM1, [a, S1, future], date(2099, 1, 1))
+    await relate(graphql_client, okosted.org_unit_uuid(X), [a], always)
 
 
 @pytest.mark.integration_test
@@ -152,6 +170,29 @@ async def test_report(test_client: AsyncClient, graphql_client: GraphQLClient) -
     # Nothing changed, so nothing is uploaded
     assert await report(test_client) is None
     assert await report_files(graphql_client) == {reported.file_name}
+
+
+@pytest.mark.integration_test
+@pytest.mark.usefixtures("trees")
+async def test_okosted_report(
+    test_client: AsyncClient, graphql_client: GraphQLClient
+) -> None:
+    """SOR's units straight to a code system's, with no settings."""
+    reported = await report(test_client, "okosted")
+
+    assert reported is not None
+    assert reported.file_name.startswith("sor_okosted_report_")
+    assert await read(graphql_client, reported.file_name) == OKOSTED_REPORT
+
+
+@pytest.mark.integration_test
+@pytest.mark.envvar(REPORT_ENV)
+@pytest.mark.usefixtures("trees")
+async def test_every_report(test_client: AsyncClient) -> None:
+    r = await test_client.post("/report")
+
+    r.raise_for_status()
+    assert set(r.json()) == {"loen", "okosted"}
 
 
 @pytest.mark.integration_test
@@ -198,12 +239,9 @@ async def test_sor_not_in_mo(test_client: AsyncClient) -> None:
         r = await test_client.post("/report")
 
     assert r.status_code == 500
-    not_reported = {
-        (log["report"], log["error"])
-        for log in cap_logs
-        if log["event"] == "Not reported"
-    }
-    assert not_reported == {("loen", "no root of sor in MO")}
+    # Once, rather than for each report
+    errors = [log["error"] for log in cap_logs if log["event"] == "Not reported"]
+    assert errors == ["no root of sor in MO"]
 
 
 @pytest.mark.integration_test
@@ -243,7 +281,7 @@ async def test_root_unit(graphql_client: GraphQLClient, okosted: CodeSystem) -> 
 @pytest.mark.integration_test
 @pytest.mark.envvar({"CODE_SYSTEMS": json.dumps(["sor"])})
 async def test_no_report_configured(test_client: AsyncClient) -> None:
-    """No report settings."""
+    """No report settings, and Økosted is not ingested."""
     r = await test_client.post("/report")
     assert r.status_code == 404
 
@@ -251,13 +289,14 @@ async def test_no_report_configured(test_client: AsyncClient) -> None:
 @pytest.mark.integration_test
 @pytest.mark.envvar({**REPORT_ENV, "CODE_SYSTEMS": json.dumps(["okosted"])})
 async def test_no_report_without_sor(test_client: AsyncClient) -> None:
-    """SOR is the source of the report."""
+    """SOR is the source of every report."""
     r = await test_client.post("/report")
     assert r.status_code == 404
 
 
 @pytest.mark.integration_test
 @pytest.mark.envvar({**REPORT_ENV, "CODE_SYSTEMS": json.dumps(["sor"])})
-async def test_report_not_configured(test_client: AsyncClient) -> None:
-    r = await test_client.post("/report", params={"name": "unknown"})
+@pytest.mark.parametrize("name", ["okosted", "unknown"])
+async def test_report_not_configured(test_client: AsyncClient, name: str) -> None:
+    r = await test_client.post("/report", params={"name": name})
     assert r.status_code == 404
