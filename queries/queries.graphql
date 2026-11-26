@@ -63,6 +63,17 @@ mutation TerminateOrgUnit($input: OrganisationUnitTerminateInput!) {
   }
 }
 
+query ListRootUnits {
+  org_units(filter: {parent: null, from_date: null, to_date: null}) {
+    objects {
+      uuid
+      validities(start: null, end: null) {
+        user_key
+      }
+    }
+  }
+}
+
 query ListFiles($file_store: FileStore!) {
   files(filter: {file_store: $file_store}) {
     objects {
