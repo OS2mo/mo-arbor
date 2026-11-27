@@ -132,13 +132,16 @@ class CodeSystem(BaseModel, frozen=True):
         return self.root_unit.uuid
 
 
-class ReportSettings(BaseModel, frozen=True):
-    """The roots in MO of the trees the report links the code systems to."""
+class LoenReportSettings(BaseModel, frozen=True):
+    """The report of how SOR's units link to a løn tree through the Adm tree."""
 
-    # The administrative units, which the code systems' units are related to
+    # The løn tree's name in the report's file name, as in
+    # sor_<name>_report_<time>.csv.
+    name: str
+    # The administrative units, which SOR's units are related to
     root_adm: UUID
-    # The target tree's units, which the administrative units are related to
-    root_target: UUID
+    # The løn tree's units, which the administrative units are related to
+    root_loen: UUID
 
 
 class Settings(BaseSettings):
@@ -156,6 +159,7 @@ class Settings(BaseSettings):
     # Protects against a truncated dump terminating half the tree.
     max_terminations: int = 10
 
-    # The report of the code systems' links to a target tree, e.g.
-    # REPORT__ROOT_ADM=<uuid> and REPORT__ROOT_TARGET=<uuid>. None to not report.
-    report: ReportSettings | None = None
+    # The report of how SOR's units link to a løn tree, e.g.
+    # LOEN_REPORT__NAME=<name>, LOEN_REPORT__ROOT_ADM=<uuid> and
+    # LOEN_REPORT__ROOT_LOEN=<uuid>. None to not report it.
+    loen_report: LoenReportSettings | None = None
